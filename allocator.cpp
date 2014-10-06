@@ -32,7 +32,7 @@ void  DBAllocator::db_write_table()
 		if(fwrite_db(d_base->fd,file_stat,offset,sizeof(char),mem_size) != mem_size)
 			std::cout <<"Writing allocator table error!\n";
 }
-int DBAllocator::db_alloc()
+int DBAllocator::db_alloc(unsigned long& page_num)
 {
 	
 	if(mem_used < mem_size*BITS_IN_BYTE*sizeof(char))

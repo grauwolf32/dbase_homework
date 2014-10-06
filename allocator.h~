@@ -17,7 +17,7 @@ class DBAllocator
 	void   db_write_table();	
  private:
 	struct DB* d_base;
-	unsigned long mem_size; //size in bytes
+	unsigned long mem_size;
 	unsigned long last_ptr; //bits
 	unsigned long mem_used; //bits
 	unsigned long offset;   //bits

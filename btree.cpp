@@ -115,7 +115,7 @@ int split_child(BTreeNode* x,unsigned int i,struct DB* db)
 	y = *x;
 	int c = (BTREE_KEY_CNT/2);
 	z.leaf = y.leaf;
-	z.page = db->db_all->db_alloc();
+	db->db_all->db_alloc(z.page);
 	z.nKeys = c - 1;
 
 	for(int j = 0;j < c - 1;j++)
@@ -156,7 +156,7 @@ int insert_key(BTreeNode* head,char* key,struct DB* db)
 	if(root->nKeys == (2*BTREE_KEY_CNT-1))
 	{
 		BTreeNode s;
-		s.page = db->db_all->db_alloc();
+		db->db_all->db_alloc(s.page);
 		*head = s;
 		s.leaf = 0;
 		s.nKeys = 0;
