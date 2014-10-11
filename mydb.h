@@ -6,6 +6,13 @@
 #include "allocator.h"
 /* check `man dbopen` */
 
+struct Node //Кусочек памяти, для записи на диск, размером chunk size
+{
+	char* value;
+	size_t size;
+}
+
+
 struct DBT {
 	void  *data;
 	size_t size;
@@ -22,6 +29,7 @@ struct DB {
 	int (*get)(const struct DB *db, const struct DBT *key, struct DBT *data);
 	int (*put)(const struct DB *db, const struct DBT *key, const struct DBT *data);
 	
+	struct DBC config;
 	DBAllocator* db_all;
 	FILE*	     fd;
 	BTreeNode* head;
@@ -43,7 +51,8 @@ struct DBC {
 
 /* don't store metadata in the file */
 struct DB *dbcreate(const char *file, const struct DBC conf);
-struct DB *dbopen  (const char *file, const struct DBC conf);
+struct DB *dbopen  (const char *file, const struct DBC conf); //const struct DBC conf не нужен здесь, он используется только при конфигурировании системы 
+//Размер чанка задается только при создании базы данных 
 
 int db_close(struct DB *db);
 int db_del(const struct DB *, void *, size_t);

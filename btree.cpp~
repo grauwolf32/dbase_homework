@@ -3,21 +3,35 @@
 #include "mydb.h"
 #include "allocator.h"
 
+#define SUCC 1
+#define FAIL 0
+
+//---------------------------------------Функции класса-------------------------
 BTreeNode::BTreeNode()
 {
 	chld = new unsigned long[BTREE_CHLD_CNT];
-	keys = new unsigned long[BTREE_KEY_CNT*BTREE_KEY_LEN];
+	keys = new char[BTREE_KEY_CNT*BTREE_KEY_LEN];
 	vals = new unsigned long[BTREE_CHLD_CNT];
 	
 	memset(chld,0,BTREE_CHLD_CNT*sizeof(char));
 	memset(keys,0,BTREE_KEY_CNT*BTREE_KEY_LEN*sizeof(char));
 	memset(vals,0,BTREE_CHLD_CNT);
 	
+	struct_size = 0;
+	struct_size += sizeof(page);
+	struct_size += sizeof(nKeys);
+	struct_size += sizeof(leaf);
+	struct_size += BTREE_KEY_CNT*BTREE_KEY_LEN*sizeof(char);
+	struct_size += BTREE_CHLD_CNT*sizeof(unsigned long);
+	struct_size += BTREE_KEY_CNT*sizeof(unsigned long);
+	
+
 	page = 0;
-	parentPage = 0;
 	nKeys = 0;
 	leaf = 1;
 }
+
+
 BTreeNode::~BTreeNode()
 {
 	if(chld != NULL)delete[] chld;
@@ -36,7 +50,7 @@ BTreeNode& BTreeNode::operator=(const BTreeNode& rnode)
 	if(rnode.keys != NULL && rnode.chld != NULL && rnode.vals != NULL)
 	{	
 		chld = new unsigned long[BTREE_CHLD_CNT];
-		keys = new unsigned long[BTREE_KEY_CNT*BTREE_KEY_LEN];
+		keys = new char [BTREE_KEY_CNT*BTREE_KEY_LEN];
 		vals = new unsigned long[BTREE_CHLD_CNT];
 	
 		for(unsigned long i = 0; i < BTREE_CHLD_CNT;i++) chld[i] = rnode.chld[i];
@@ -46,13 +60,84 @@ BTreeNode& BTreeNode::operator=(const BTreeNode& rnode)
 	}
 	
 	page = rnode.page;
-	parentPage = rnode.parentPage;
 	nKeys = rnode.nKeys;
 	leaf = rnode.leaf;
 	
 	return *this;
 }
 
+int 	 BTreeNode::read_from_file(long int offset,struct DB* db)
+{
+	struct Node node;
+	unsigned int ptr = 0;
+	unsigned long read_size = 0;
+	node.value = new char[db->config.chunk_size];
+	
+	if((read_size = fread_db(db->fd,node.value,offset,db->config.chunk_size,1)) != struct_size) 
+	{
+		std::cout<< read_size <<" bytes was read instead " << db->config.chunk_size <<"\n";
+		return FAIL;
+	}
+
+	memcpy(&page,node.value,sizeof(page));	
+	ptr += 	sizeof(page);
+
+	memcpy(&nKeys,(node.value + ptr),sizeof(nKeys));
+	ptr += sizeof(nKeys);
+
+	memcpy(&leaf,(node.value + ptr),sizeof(leaf));
+	ptr += sizeof(leaf);
+
+	memcpy(keys,(node.value + ptr),BTREE_KEY_CNT*BTREE_KEY_LEN*sizeof(char));
+	ptr += BTREE_KEY_CNT*BTREE_KEY_LEN*sizeof(char);
+	
+	memcpy(chld,(node.value + ptr),BTREE_CHLD_CNT*sizeof(unsigned long));
+	ptr += BTREE_CHLD_CNT*sizeof(unsigned long);
+	
+	memcpy(vals,(node.value + ptr),BTREE_KEY_CNT*sizeof(unsigned long));
+	ptr += BTREE_KEY_CNT*sizeof(unsigned long);
+	
+	return SUCC;
+}
+int	 BTreeNode::write_to_file(struct DB* db)
+{
+	struct Node node;
+	unsigned int ptr = 0;
+	unsigned long offset = 0;
+	node.value = new char[db->config.chunk_size];
+
+	memset(node.value,0,db->config.chunk_size);
+
+	memcpy(node.value,&page,sizeof(page));	
+	ptr += 	sizeof(page);
+
+	memcpy((node.value + ptr),&nKeys,sizeof(nKeys));
+	ptr += sizeof(nKeys);
+
+	memcpy((node.value + ptr),&leaf,sizeof(leaf));
+	ptr += sizeof(leaf);
+
+	memcpy((node.value + ptr),keys,BTREE_KEY_CNT*BTREE_KEY_LEN*sizeof(char));
+	ptr += BTREE_KEY_CNT*BTREE_KEY_LEN*sizeof(char);
+	
+	memcpy((node.value + ptr),chld,BTREE_CHLD_CNT*sizeof(unsigned long));
+	ptr += BTREE_CHLD_CNT*sizeof(unsigned long);
+	
+	memcpy((node.value + ptr),vals,BTREE_KEY_CNT*sizeof(unsigned long));
+	ptr += BTREE_KEY_CNT*sizeof(unsigned long);
+	
+	db->db_all.db_alloc(&offset);
+	
+	if(fwrite_db(db->fd,node.value,offset,db->config.chunk_size,1) != struct_size)
+	{ 
+		std::cout <<"Precise struct size is: "<< ptr << "\n";
+		return FAIL;
+	}
+
+	return SUCC;
+}
+
+//------------------------------------Внешние функции------------------------------------------
 int keys_compare(BTreeNode* node,int key_i,int key_j)
 {
 	if(key_i < BTREE_KEY_CNT && key_j < BTREE_KEY_CNT && node->keys != NULL)
@@ -82,16 +167,18 @@ void keys_copy(BTreeNode* node,int key_i,char* key)
 
 int disk_read_node(DB* db,unsigned long page,BTreeNode* result)
 {
-	if(fread_db(db->fd,result,page,sizeof(char),sizeof(BTreeNode)) != sizeof(BTreeNode)) return 0;
-	return 1;
+	if(fread_db(db->fd,result,page,sizeof(char),sizeof(BTreeNode)) != sizeof(BTreeNode)) return FAIL;
+	return SUCC;
 }
 
 int disk_write_node(DB* db,unsigned long page,BTreeNode* source)
 {
-	if(fwrite_db(db->fd,source,page,sizeof(char),sizeof(BTreeNode)) != sizeof(BTreeNode)) return 0;
-	return 1;
+	if(fwrite_db(db->fd,source,page,sizeof(char),sizeof(BTreeNode)) != sizeof(BTreeNode)) return FAIL;
+	return SUCC;
 }
 
+
+//--------------------------Реализация функций структуры B-дерева---------------------------------------------
 int search_key(BTreeNode* head,char* key,struct DB* db,BTreeNode* result)
 {
 	unsigned int i = 0;
@@ -99,9 +186,9 @@ int search_key(BTreeNode* head,char* key,struct DB* db,BTreeNode* result)
 	if(i < head->nKeys && keys_compare(head,key,i) == 0)
 	{
 		*result = *head; 
-		return 1;
+		return SUCC;
 	} 
-	if(head->leaf)return 0;
+	if(head->leaf)return FAIL;
 	else 
 	{
 		disk_read_node(db,head->chld[i],result);

@@ -32,7 +32,7 @@ void DBAllocator::db_refresh()
 	mem_used = memory_used(file_stat,mem_size);
 	std::cout << "allocator table was refreshed:\n";
 	std::cout << "memory used:\t" << mem_used << "\n";
-	std::cout << "last set bit\t:" << mem_used << "\n";
+	std::cout << "last set bit\t:" << last_ptr << "\n";
 	
 }
 void  DBAllocator::db_write_table()

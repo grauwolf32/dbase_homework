@@ -9,20 +9,29 @@
 #define BTREE_VAL_LEN 4092
 #define BTREE_CHLD_CNT (BTREE_KEY_CNT+1)
 
-class BTreeNode 
-{
+//Переделать под структуру так как как классы плохо проецируются на память (!!!!) Или добавить метод write и read
+//Точно надо написать read и write методы т.к. хз, как будут писаться динамические массивы
+
+class BTreeNode {
  public:
 	~BTreeNode();
 	BTreeNode();
 	BTreeNode(const BTreeNode& rnode);
 	BTreeNode& operator=(const BTreeNode& rnode);
+
+	int	read_from_file(long int offset,struct DB* db); //Нельзя так просто, нужно организовать ноды для работы с chunk' ом
+	int	write_to_file(long int offset,struct DB* db); 
+	
 	unsigned long page;
-	unsigned long parentPage;
 	unsigned long nKeys;
 	int	 leaf;
+	char *keys;	    //Хранит значение ключей
 	unsigned long *chld;
-	unsigned long *keys;
 	unsigned long *vals;//Указатель на страницу, в которой храняться данные
+ private:
+	struct DB* db;
+	unsigned int struct_size; //Хранит размер, который занимает дельная информация в классе
+	
 };
 
 int search_key(BTreeNode* head,char* key,struct DB* db,BTreeNode* result);

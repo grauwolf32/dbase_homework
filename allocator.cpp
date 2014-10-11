@@ -16,6 +16,7 @@ DBAllocator::DBAllocator(struct DBC config,struct DB* dat_base,long int Offset,s
 
 	std::cout << "allocator table was created successesfully!\n";
 	std::cout << "size:\t"<<mem_size<<"\n";
+
 }
 DBAllocator::~DBAllocator()
 {
