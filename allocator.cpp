@@ -5,7 +5,7 @@
 
 #define BITS_IN_BYTE 8
 
-DBAllocator::DBAllocator(struct DBC config,struct DB* dat_base,long int Offset,size_t size)
+DBAllocator::DBAllocator(struct DB* dat_base,long int Offset,size_t size)
 {
 	d_base = dat_base; 
 	offset = Offset;
@@ -93,20 +93,20 @@ void DBAllocator::db_free(unsigned long page_num)
 }
 size_t fread_db(FILE* fd,void* ptr,long int offset,size_t size,size_t count)
 {
-	int curr_offset = ftell(fd);
+	/*int curr_offset = ftell(fd);*/
 	size_t res = 0;
 	fseek(fd,offset,SEEK_SET);
 	res = fread(ptr,size,count,fd);
-	fseek(fd,curr_offset,SEEK_SET);
+	/*fseek(fd,curr_offset,SEEK_SET);*/
 	return res;
 }
 size_t fwrite_db(FILE* fd,void* ptr,long int offset,size_t size,size_t count)
 {
-	int curr_offset = ftell(fd);
+	/*int curr_offset = ftell(fd);*/
 	size_t res = 0;
 	fseek(fd,offset,SEEK_SET);
 	res = fwrite(ptr,size,count,fd);
-	fseek(fd,curr_offset,SEEK_SET);
+	/*fseek(fd,curr_offset,SEEK_SET);*/
 	return res;
 }
 size_t last_set_bit(char* ptr,size_t size)

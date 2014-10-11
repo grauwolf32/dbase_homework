@@ -10,7 +10,7 @@ int main()
     config.db_size = 1024*1024*2;
     struct DB* db = dbcreate("base.db",config);
     close(db);
-   // db = dbopen("base.db",config);
+    //db = dbopen("base.db",config);
     //close(db);
     return 0;
 }

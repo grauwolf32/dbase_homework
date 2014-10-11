@@ -23,14 +23,13 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 	 std::cout <<"Chunk size:\t"<< new_base->config->chunk_size<<"\n";
 	
 	new_base->head = new BTreeNode;
-	memset(new_base->head,1,sizeof(new_base->head));
 		
 	 /*int fseek ( FILE * stream, long int offset, int origin );
 	   SEEK_SET	Beginning of file
 	   SEEK_CUR	Current position of the file pointer
 	   SEEK_END	End of file */
 					
-	 int key_cnt = BTREE_KEY_CNT, key_len = BTREE_KEY_LEN, val_len = BTREE_VAL_LEN,chld_cnt = BTREE_CHLD_CNT,errcode = 0;
+	 unsigned int key_cnt = BTREE_KEY_CNT, key_len = BTREE_KEY_LEN, val_len = BTREE_VAL_LEN,chld_cnt = BTREE_CHLD_CNT,errcode = 0;
 	 std::cout <<"B-tree configuration: \n";
 	 std::cout <<"key count:\t"<<key_cnt<<"\n";
 	 std::cout <<"key length:\t"<<key_len<<"\n";
@@ -50,31 +49,37 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 		std::cout << "base size wasn't successesfull writen\n";
 	 }
 	 if((errcode =fwrite(&new_base->config->chunk_size,sizeof(new_base->config->chunk_size),1,new_base->fd)) != 1)
-	 {
+	 { 
 		std::cout << "chunk size wasn't sucessesful written\n";
-	 }
-	 
+	 }	
+
 	 long int head_offset = write_offset(new_base->fd);/* Загатовка позиции для будущего смещения корневого листа */
-	 unsigned long memory_size = (conf.db_size/conf.chunk_size) + 1;
+	 unsigned long memory_size = (new_base->config->db_size/new_base->config->chunk_size) + 1;
+	 
 	 std::cout <<"head offset: " << head_offset << "\n";
 	 fwrite(&memory_size,sizeof(memory_size),1,new_base->fd);
-	
+
 	 long int offset = write_offset(new_base->fd);
-	 DBAllocator* db_all = new DBAllocator(conf,new_base,offset,memory_size);
-	 
-	 memset(db_all->file_stat,0,db_all->mem_size*sizeof(char));
+	 std::cout << "table offset:\t"<<offset<<"\n";
+
+	 DBAllocator* db_all = new DBAllocator(new_base,offset,memory_size);
 	 db_all->db_write_table();
-	
-	 offset += sizeof(char)*db_all->mem_size; /*Найти смещение конца таблицы*/
-	 new_base->head_offset = offset; 
-	 new_base->head->write_to_file(0,new_base);
-	
+
+	 /*
+	 offset += sizeof(char)*db_all->mem_size; // Найти смещение 
+	 new_base->head_offset = offset;   //Старая версия
+	 */
+	 fprintf(new_base->fd,"ha ha");
+	 new_base->head_offset = ftell(new_base->fd);
+	 new_base->head->write_to_file(new_base->head_offset,new_base);//Херь здесь
+	 offset = ftell(new_base->fd);
+
 	 fseek(new_base->fd,head_offset,SEEK_SET);
-	 fwrite(&offset,sizeof(offset),1,new_base->fd);
+	 fwrite(&new_base->head_offset,sizeof(new_base->head_offset),1,new_base->fd);
+
 	 fseek(new_base->fd,offset,SEEK_SET);
-	 fprintf(new_base->fd,"%ld",offset);// Отладка
-  	 
 	 new_base->db_all = db_all;
+	 
 	 return new_base;
 }
 
@@ -92,9 +97,8 @@ struct DB *dbopen(const char *file, struct DBC conf)
 		std::cout<<"Error! File wasn't open!\n";
 	
 	 new_base->head = new BTreeNode;
-	 memset(new_base->head,0,sizeof(new_base->head));
 
-	 int key_cnt = 0, key_len = 0, val_len = 0,chld_cnt = 0,errcode = 0;
+	 unsigned int key_cnt = 0, key_len = 0, val_len = 0,chld_cnt = 0,errcode = 0;
 
 	 if((errcode = fread(&key_cnt,sizeof(key_cnt),1,new_base->fd)) != 1)std::cout << "key count wasn't read successesfully!\n";
 	 if((errcode = fread(&key_len,sizeof(key_len),1,new_base->fd)) != 1)std::cout << "key len wasn't read successesfully!\n";
@@ -128,7 +132,7 @@ struct DB *dbopen(const char *file, struct DBC conf)
 	 fread(&memory_size,sizeof(memory_size),1,new_base->fd);
 	 fread(&offset,sizeof(offset),1,new_base->fd);	
 	
-	 DBAllocator* db_all = new DBAllocator(conf,new_base,offset,memory_size);
+	 DBAllocator* db_all = new DBAllocator(new_base,offset,memory_size);
 	 db_all->db_read_table();
 
 	 new_base->head_offset = head_offset;

@@ -5,7 +5,7 @@
 
 #define BITS_IN_BYTE 8
 
-DBAllocator::DBAllocator(struct DBC config,struct DB* dat_base,long int Offset,size_t size)
+DBAllocator::DBAllocator(struct DB* dat_base,long int Offset,size_t size)
 {
 	d_base = dat_base; 
 	offset = Offset;
@@ -45,6 +45,7 @@ void  DBAllocator::db_write_table()
 	if(file_stat != NULL && d_base->fd != NULL && mem_size != 0)
 		if(fwrite_db(d_base->fd,file_stat,offset,sizeof(char),mem_size) != mem_size)
 			std::cout <<"Writing allocator table error!\n";
+	std::cout <<"allocator table was successesful writen\n";
 }
 
 void DBAllocator::db_read_table()
@@ -52,6 +53,7 @@ void DBAllocator::db_read_table()
 	if(file_stat != NULL && d_base->fd != NULL && mem_size != 0)
 		if(fread_db(d_base->fd,file_stat,offset,sizeof(char),mem_size) != mem_size)
 			std::cout <<"Reading allocator table error!\n";
+	std::cout <<"allocator table was successesful read\n";
 	db_refresh();
 	
 }
