@@ -40,7 +40,7 @@ struct DB {
 	int (*get)(const struct DB *db, const struct DBT *key, struct DBT *data);
 	int (*put)(const struct DB *db, const struct DBT *key, const struct DBT *data);
 	
-	struct DBC config;
+	struct DBC* config;
 	DBAllocator* db_all;
 	FILE*	     fd;
 	BTreeNode* head;
@@ -56,6 +56,7 @@ struct DB *dbcreate(const char *file, struct DBC conf);
 struct DB *dbopen  (const char *file, struct DBC conf); //const struct DBC conf не нужен здесь, он используется только при конфигурировании системы 
 //Размер чанка задается только при создании базы данных 
 
+int close(struct DB *db);
 long int write_offset(FILE* fd); /*Фсункция для написания смещений*/
 
 int db_close(struct DB *db);

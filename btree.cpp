@@ -35,9 +35,9 @@ BTreeNode::BTreeNode()
 
 BTreeNode::~BTreeNode()
 {
-	if(chld != NULL)delete[] chld;
-	if(keys != NULL)delete[] keys;
-	if(vals != NULL)delete[] vals;
+	if(chld != NULL)delete chld;
+	if(keys != NULL)delete keys;
+	if(vals != NULL)delete vals;
 }
 
 BTreeNode& BTreeNode::operator=(const BTreeNode& rnode)
@@ -72,11 +72,12 @@ int 	 BTreeNode::read_from_file(long int offset,struct DB* db)
 	struct Node node;
 	unsigned int ptr = 0;
 	unsigned long read_size = 0;
-	node.value = new char[db->config.chunk_size];
+	node.value = new char[db->config->chunk_size];
 	
-	if((read_size = fread_db(db->fd,node.value,offset,db->config.chunk_size,1)) != struct_size) 
+	if((read_size = fread_db(db->fd,node.value,offset,sizeof(char),db->config->chunk_size)) != db->config->chunk_size) 
 	{
-		std::cout<< read_size <<" bytes was read instead " << db->config.chunk_size <<"\n";
+		std::cout <<"Error! Node isn't read successesful!\n";
+		std::cout<< read_size <<" bytes was read instead of: " << db->config->chunk_size <<"\n";
 		return FAIL;
 	}
 
@@ -98,16 +99,18 @@ int 	 BTreeNode::read_from_file(long int offset,struct DB* db)
 	memcpy(vals,(node.value + ptr),BTREE_KEY_CNT*sizeof(unsigned long));
 	ptr += BTREE_KEY_CNT*sizeof(unsigned long);
 	
+	delete node.value;
 	return SUCC;
 }
 int	 BTreeNode::write_to_file(long int offset,struct DB* db)
 {
 	struct Node node;
 	unsigned int ptr = 0;
+	unsigned long mem_read = 0;
 
-	node.value = new char[db->config.chunk_size];
+	node.value = new char[db->config->chunk_size];
 
-	memset(node.value,0,db->config.chunk_size);
+	memset(node.value,0,db->config->chunk_size);
 
 	memcpy(node.value,&page,sizeof(page));	
 	ptr += 	sizeof(page);
@@ -127,11 +130,15 @@ int	 BTreeNode::write_to_file(long int offset,struct DB* db)
 	memcpy((node.value + ptr),vals,BTREE_KEY_CNT*sizeof(unsigned long));
 	ptr += BTREE_KEY_CNT*sizeof(unsigned long);
 	
-	if(fwrite_db(db->fd,node.value,offset,db->config.chunk_size,1) != struct_size)
+	if((mem_read = fwrite_db(db->fd,node.value,offset,sizeof(char),db->config->chunk_size)) != db->config->chunk_size) 
 	{ 
+		std::cout <<"Error! Node isn't wrote successesful!\n";
+		std::cout <<"Read: "<< mem_read <<"\n";
 		std::cout <<"Precise struct size is: "<< ptr << "\n";
+		std::cout <<"Chunk size: "<<db->config->chunk_size <<"\n";
 		return FAIL;
 	}
+	delete node.value;
 
 	return SUCC;
 }
@@ -166,13 +173,13 @@ void keys_copy(BTreeNode* node,int key_i,char* key)
 
 int disk_read_node(DB* db,unsigned long page,BTreeNode* result)
 {
-	long int offset = page*db->config.chunk_size + db->head_offset;
+	long int offset = page*db->config->chunk_size + db->head_offset;
 	return result->read_from_file(offset,db);
 }
 
 int disk_write_node(DB* db,unsigned long page,BTreeNode* source)
 {
-	long int offset = page*db->config.chunk_size + db->head_offset;
+	long int offset = page*db->config->chunk_size + db->head_offset;
 	return source->write_to_file(offset,db);
 }
 

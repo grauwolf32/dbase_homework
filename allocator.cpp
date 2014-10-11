@@ -16,14 +16,16 @@ DBAllocator::DBAllocator(struct DBC config,struct DB* dat_base,long int Offset,s
 
 	std::cout << "allocator table was created successesfully!\n";
 	std::cout << "size:\t"<<mem_size<<"\n";
+	std::cout << "offset:\t"<<offset<<"\n";
 
 }
 DBAllocator::~DBAllocator()
 {
 	db_write_table();
 	if(file_stat != NULL)
-		delete[] file_stat;
-
+		delete file_stat;
+	
+	file_stat = NULL;
 	d_base = NULL;
 }
 
@@ -31,16 +33,19 @@ void DBAllocator::db_refresh()
 {
 	last_ptr = last_set_bit(file_stat,mem_size);
 	mem_used = memory_used(file_stat,mem_size);
+
 	std::cout << "allocator table was refreshed:\n";
 	std::cout << "memory used:\t" << mem_used << "\n";
 	std::cout << "last set bit\t:" << last_ptr << "\n";
 	
 }
+
 void  DBAllocator::db_write_table()
 {
 	if(file_stat != NULL && d_base->fd != NULL && mem_size != 0)
 		if(fwrite_db(d_base->fd,file_stat,offset,sizeof(char),mem_size) != mem_size)
 			std::cout <<"Writing allocator table error!\n";
+	std::cout <<"allocator table was successesful writen\n";
 }
 
 void DBAllocator::db_read_table()
@@ -48,6 +53,7 @@ void DBAllocator::db_read_table()
 	if(file_stat != NULL && d_base->fd != NULL && mem_size != 0)
 		if(fread_db(d_base->fd,file_stat,offset,sizeof(char),mem_size) != mem_size)
 			std::cout <<"Reading allocator table error!\n";
+	std::cout <<"allocator table was successesful read\n";
 	db_refresh();
 	
 }

@@ -18,7 +18,8 @@ class DBAllocator
 	void   db_free(unsigned long page );
 	void   db_write_table();
 	void   db_read_table();
-	void   db_refresh();	
+	void   db_refresh();
+	void   db_remove();	
  private:
 	struct DB* d_base;
 	unsigned long mem_size;
