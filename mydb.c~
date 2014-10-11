@@ -32,21 +32,22 @@ struct DB *dbcreate(const char *file,struct DBC config)
 	 fwrite(&conf.chunk_size,sizeof(conf.chunk_size),1,new_base->fd);
 	 
 	 long int head_offset = write_offset(new_base->fd);/* Загатовка позиции для будущего смещения корневого листа */
-
-	 fwrite(&db_all->mem_size,sizeof(db_all->mem_size),1,new_base->fd);
+	 unsigned long memory_size = (conf.db_size/conf.chunk_size) + 1;
+	 fwrite(&memory_size,sizeof(memory_size),1,new_base->fd);
+	
 	 long int offset = write_offset(new_base->fd);
-
-	 DBAllocator* db_all = new DBAllocator(conf,new_base,offset,(conf.db_size/conf.chunk_size) + 1);
+	 DBAllocator* db_all = new DBAllocator(conf,new_base,offset,memory_size);
+	 
 	 memset(db_all->file_stat,0,db_all->mem_size*sizeof(char));
 	 fwrite(db_all->file_stat,sizeof(char),db_all->mem_size,new_base->fd);
 	
 	 offset += sizeof(char)*db_all->mem_size; /*Найти смещение конца таблицы*/
 	 new_base->head_offset = offset; 
-	 new_base->head.write_to_disk(new_base->fd,0);
+	 new_base->head->write_to_file(0,new_base);
 	
-	 fseek(fd,head_offset,SEEK_SET);
+	 fseek(new_base->fd,head_offset,SEEK_SET);
 	 fwrite(&offset,sizeof(offset),1,new_base->fd);
-	 fseek(fd,offset,SEEK_SET);
+	 fseek(new_base->fd,offset,SEEK_SET);
 	 fprintf(new_base->fd,"%ld",offset);// Отладка
   	 
  	 new_base->config = conf;
@@ -86,8 +87,9 @@ struct DB *dbopen(const char *file, struct DBC conf)
 	 DBAllocator* db_all = new DBAllocator(conf,new_base,offset,memory_size);
 	 db_all->db_read_table();
 
+	 new_base->head_offset = head_offset;
 	 new_base->head = new BTreeNode;
-	 new_base->head.read_from_file(new_db,0);
+	 new_base->head->read_from_file(0,new_db);
 	 
 	 new_base->config = conf;
 	 new_base->db_all = db_all;

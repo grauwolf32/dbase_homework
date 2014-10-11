@@ -1,4 +1,5 @@
 #include <string.h>
+#include <iostream>
 #include "btree.h"
 #include "mydb.h"
 #include "allocator.h"
@@ -171,7 +172,8 @@ int disk_read_node(DB* db,unsigned long page,BTreeNode* result)
 
 int disk_write_node(DB* db,unsigned long page,BTreeNode* source)
 {
-	return source->write_to_file(page,db);
+	long int offset = page*db->config.chunk_size + db->head_offset;
+	return source->write_to_file(offset,db);
 }
 
 

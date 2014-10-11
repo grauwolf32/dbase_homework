@@ -1,4 +1,5 @@
 #include <string.h>
+#include <iostream>
 #include "btree.h"
 #include "mydb.h"
 #include "allocator.h"
@@ -103,7 +104,7 @@ int	 BTreeNode::write_to_file(long int offset,struct DB* db)
 {
 	struct Node node;
 	unsigned int ptr = 0;
-	unsigned long offset = 0;
+
 	node.value = new char[db->config.chunk_size];
 
 	memset(node.value,0,db->config.chunk_size);
