@@ -29,7 +29,6 @@ class BTreeNode {
 	unsigned long *chld;
 	unsigned long *vals;//Указатель на страницу, в которой храняться данные
  private:
-	struct DB* db;
 	unsigned int struct_size; //Хранит размер, который занимает дельная информация в классе
 	
 };

@@ -19,8 +19,8 @@ class BTreeNode {
 	BTreeNode(const BTreeNode& rnode);
 	BTreeNode& operator=(const BTreeNode& rnode);
 
-	void	read_from_file(long int offset,struct DB* db); //Нельзя так просто, нужно организовать ноды для работы с chunk' ом
-	void	write_to_file(long int offset,struct DB* db); 
+	int	read_from_file(long int offset,struct DB* db); //Нельзя так просто, нужно организовать ноды для работы с chunk' ом
+	int	write_to_file(long int offset,struct DB* db); 
 	
 	unsigned long page;
 	unsigned long nKeys;

@@ -6,7 +6,7 @@
 #define SUCC 1
 #define FAIL 0
 
-//---------------------------------------Функции класса-------------------------
+//---------------------------------------Функции класса--------------------------------
 BTreeNode::BTreeNode()
 {
 	chld = new unsigned long[BTREE_CHLD_CNT];
@@ -99,7 +99,7 @@ int 	 BTreeNode::read_from_file(long int offset,struct DB* db)
 	
 	return SUCC;
 }
-int	 BTreeNode::write_to_file(struct DB* db)
+int	 BTreeNode::write_to_file(long int offset,struct DB* db)
 {
 	struct Node node;
 	unsigned int ptr = 0;
@@ -125,8 +125,6 @@ int	 BTreeNode::write_to_file(struct DB* db)
 	
 	memcpy((node.value + ptr),vals,BTREE_KEY_CNT*sizeof(unsigned long));
 	ptr += BTREE_KEY_CNT*sizeof(unsigned long);
-	
-	db->db_all.db_alloc(&offset);
 	
 	if(fwrite_db(db->fd,node.value,offset,db->config.chunk_size,1) != struct_size)
 	{ 
@@ -167,14 +165,13 @@ void keys_copy(BTreeNode* node,int key_i,char* key)
 
 int disk_read_node(DB* db,unsigned long page,BTreeNode* result)
 {
-	if(fread_db(db->fd,result,page,sizeof(char),sizeof(BTreeNode)) != sizeof(BTreeNode)) return FAIL;
-	return SUCC;
+	long int offset = page*db->config.chunk_size + db->head_offset;
+	return result->read_from_file(offset,db);
 }
 
 int disk_write_node(DB* db,unsigned long page,BTreeNode* source)
 {
-	if(fwrite_db(db->fd,source,page,sizeof(char),sizeof(BTreeNode)) != sizeof(BTreeNode)) return FAIL;
-	return SUCC;
+	return source->write_to_file(page,db);
 }
 
 

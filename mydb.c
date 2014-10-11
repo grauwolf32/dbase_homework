@@ -1,10 +1,9 @@
 #include "mydb.h"
 
-struct DB *dbcreate(const char *file, const struct DBC conf)
+struct DB *dbcreate(const char *file,struct DBC config)
 {
-
-	config = conf;
-
+	
+	struct DBC conf = config;
  	struct DB* new_base = new DB;	
  	new_base->fd = NULL;
  	new_base->fd = fopen(file,"wb+");
@@ -20,31 +19,80 @@ struct DB *dbcreate(const char *file, const struct DBC conf)
 	   SEEK_CUR	Current position of the file pointer
 	   SEEK_END	End of file */
 					
-	 fprintf(new_base->fd,"%d%d%d%d",BTREE_KEY_CNT,BTREE_KEY_LEN,BTREE_VAL_LEN,BTREE_CHLD_CNT);
-	 fprintf(new_base->fd,"%d%d",(int)conf.db_size,(int)conf.chunk_size);
+	 int key_cnt = BTREE_KEY_CNT, key_len = BTREE_KEY_LEN, val_len = BTREE_VAL_LEN,chld_cnt = BTREE_CHLD_CNT;
+	 /*
+	   Можно потом дописать новый функционал, введя переменные длину ключа и значения, количество ключей
+		*/
 
-	 long int offset = ftell(new_base->fd); //Узнаем текущее смещение
-	 DBAllocator* db_all = new DBAllocator(conf,new_base,offset,(conf.db_size/conf.chunk_size) + 1);//Пишем таблицу аллокатора
-	
-	 //fprintf(new_base->fd,"%l",db_all->mem_size*sizeof(char));
-	 fwrite(&db_all->mem_size,sizeof(char),sizeof(db_all->mem_size),new_base->fd);
+	 fwrite(&key_cnt,sizeof(key_cnt),1,new_base->fd);
+	 fwrite(&key_len,sizeof(key_len),1,new_base->fd);
+	 fwrite(&val_len,sizeof(val_len),1,new_base->fd);
+	 fwrite(&chld_cnt,sizeof(chld_cnt),1,new_base->fd);
+	 fwrite(&conf.db_size,sizeof(conf.db_size),1,new_base->fd);
+	 fwrite(&conf.chunk_size,sizeof(conf.chunk_size),1,new_base->fd);
+	 
+	 long int head_offset = write_offset(new_base->fd);/* Загатовка позиции для будущего смещения корневого листа */
+
+	 fwrite(&db_all->mem_size,sizeof(db_all->mem_size),1,new_base->fd);
+	 long int offset = write_offset(new_base->fd);
+
+	 DBAllocator* db_all = new DBAllocator(conf,new_base,offset,(conf.db_size/conf.chunk_size) + 1);
 	 memset(db_all->file_stat,0,db_all->mem_size*sizeof(char));
 	 fwrite(db_all->file_stat,sizeof(char),db_all->mem_size,new_base->fd);
-		
-	 offset = ftell(new_base->fd); //Узнаем текущее смещение
-	 fprintf(new_base->fd,"%d",(int)(offset + sizeof(offset))); //Пишем смещение главного листа B-дерева
-	 fwrite(new_base->head,1,sizeof(new_base->head),new_base->fd);	
-
-	 new_base->head_offset = offset + sizeof(offset); 
+	
+	 offset += sizeof(char)*db_all->mem_size; /*Найти смещение конца таблицы*/
+	 new_base->head_offset = offset; 
+	 new_base->head.write_to_disk(new_base->fd,0);
+	
+	 fseek(fd,head_offset,SEEK_SET);
+	 fwrite(&offset,sizeof(offset),1,new_base->fd);
+	 fseek(fd,offset,SEEK_SET);
+	 fprintf(new_base->fd,"%ld",offset);// Отладка
+  	 
+ 	 new_base->config = conf;
 	 new_base->db_all = db_all;
 	 return new_base;
 }
 
-struct DB *dbopen  (const char *file, const struct DBC conf)//Написать !
+struct DB *dbopen(const char *file, struct DBC conf)
 {
-	struct DB* new_db = new struct DB;
-	memset(new_db,0,sizeof(struct DB);
-	return new_db;
+	struct DB* new_base = new DB;	
+ 	new_base->fd = NULL;
+ 	new_base->fd = fopen(file,"rb+");
+
+ 	if(new_base->fd == NULL)
+		printf("Error! File wasn't created!\n");
+	
+	 new_base->head = new BTreeNode;
+	 memset(new_base->head,0,sizeof(new_base->head));
+
+	 int key_cnt = 0, key_len = 0, val_len = 0,chld_cnt = 0;
+
+	 fread(&key_cnt,sizeof(key_cnt),1,new_base->fd);
+	 fread(&key_len,sizeof(key_len),1,new_base->fd);
+	 fread(&val_len,sizeof(val_len),1,new_base->fd);
+	 fread(&chld_cnt,sizeof(chld_cnt),1,new_base->fd);
+	 fread(&conf.db_size,sizeof(conf.db_size),1,new_base->fd);
+	 fread(&conf.chunk_size,sizeof(conf.chunk_size),1,new_base->fd);
+	 
+	 long int head_offset = 0;
+	 long int offset = 0;
+	 unsigned long memory_size = 0;
+	
+	 fread(&head_offset,sizeof(head_offset),1,new_base->fd);	
+	 fread(&memory_size,sizeof(db_all->mem_size),1,new_base->fd);
+	 fread(&offset,sizeof(offset),1,new_base->fd);	
+	
+	 DBAllocator* db_all = new DBAllocator(conf,new_base,offset,memory_size);
+	 db_all->db_read_table();
+
+	 new_base->head_offset = head_offset;
+	 new_base->head = new BTreeNode;
+	 new_base->head.read_from_file(new_db,0);
+	 
+	 new_base->config = conf;
+	 new_base->db_all = db_all;
+	 return new_base;
 } 
 
 int close(struct DB *db)
@@ -64,6 +112,17 @@ int close(struct DB *db)
 	}
 	delete db;
 	return 0;
+}
+
+long int write_offset(FILE* fd)
+{
+	long int offset = ftell(fd);
+	fwrite(&offset,sizeof(offset),1,fd);
+	long int current_offset = ftell(fd);
+	fseek(fd,offset,SEEK_SET);
+	fwrite(&current_offset,sizeof(current_offset),1,fd);
+	fseek(fd,current_offset,SEEK_SET);
+	return current_offset;
 }
 
 
