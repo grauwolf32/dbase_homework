@@ -3,6 +3,10 @@
 #include "btree.h"
 #include "allocator.h"
 
+#define SUCC 1
+#define FAIL 0
+
+//--------------------------------------------------Функции инициализации-----------------------------------------------------
 struct DB *dbcreate(const char *file,struct DBC conf)
 {
 	
@@ -53,7 +57,8 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 		std::cout << "chunk size wasn't sucessesful written\n";
 	 }	
 
-	 long int head_offset = write_offset(new_base->fd);/* Загатовка позиции для будущего смещения корневого листа */
+	 long int head_offset = ftell(new_base->fd);	
+	 fwrite(&head_offset,sizeof(head_offset),1,new_base->fd);/* Загатовка позиции для будущего смещения корневого листа */
 	 unsigned long memory_size = (new_base->config->db_size/new_base->config->chunk_size) + 1;
 	 
 	 std::cout <<"head offset: " << head_offset << "\n";
@@ -61,7 +66,7 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 
 	 long int offset = write_offset(new_base->fd);
 	 std::cout << "table offset:\t"<<offset<<"\n";
-
+	 
 	 DBAllocator* db_all = new DBAllocator(new_base,offset,memory_size);
 	 db_all->db_write_table();
 
@@ -69,14 +74,16 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 	 offset += sizeof(char)*db_all->mem_size; // Найти смещение 
 	 new_base->head_offset = offset;   //Старая версия
 	 */
-	 new_base->head_offset = ftell(new_base->fd);
-	 new_base->head->write_to_file(new_base->head_offset,new_base);//Херь здесь
-	 offset = ftell(new_base->fd);
 
+	 new_base->head_offset = ftell(new_base->fd);
+	 new_base->head->write_to_file(0,new_base);
+
+	 offset = ftell(new_base->fd);
+	 fprintf(new_base->fd,"Yahoo!");
 	 fseek(new_base->fd,head_offset,SEEK_SET);
 	 fwrite(&new_base->head_offset,sizeof(new_base->head_offset),1,new_base->fd);
-
 	 fseek(new_base->fd,offset,SEEK_SET);
+
 	 new_base->db_all = db_all;
 	 
 	 return new_base;
@@ -141,7 +148,7 @@ struct DB *dbopen(const char *file, struct DBC conf)
 	 new_base->db_all = db_all;
 	 return new_base;
 } 
-
+//------------------------Внутренние функции DB-------------------------
 int close(struct DB *db)
 {
 	if(db->fd != NULL)
@@ -175,17 +182,124 @@ int close(struct DB *db)
 	return 0;
 }
 
+int get(const struct DB *db, const struct DBT *key, struct DBT *data)
+{
+	BTreeNode* result = new BTreeNode;
+	int page = -1;
+	if((page = search_key(db->head,key->data,db, result)) < 0);
+		return FAIL;
+	return read_page(db,result->vals[page],data);
+	
+}
+int put(const struct DB *db, const struct DBT *key,struct DBT *data)
+{
+	int key_num = 0;
+	unsigned long data_page = 0;
+
+        int res = 1;
+	res &= db->db_all->db_alloc(data_page);
+	res &= write_page(db,data_page,data);
+	
+	if(!res)
+		std::cout << "Error occured while puting element into database\n";
+
+	key_num = insert_key(db->head,key->data,data_page,db);//Нужно переписать insert_key
+	return key_num;	
+} 
+//---------------------------------------------------------------------
 long int write_offset(FILE* fd)
 {
 	long int offset = ftell(fd);
 	fwrite(&offset,sizeof(offset),1,fd);
+
 	long int current_offset = ftell(fd);
+
 	fseek(fd,offset,SEEK_SET);
 	fwrite(&current_offset,sizeof(current_offset),1,fd);
 	fseek(fd,current_offset,SEEK_SET);
+
 	return current_offset;
 }
 
+int read_page(const struct DB* db,unsigned long page,struct DBT* node)//Написать загрузку данных в node
+{
+	unsigned long mem_read = 0;
+	long int offset = 0;
+
+	struct DBT* data_page = new struct DBT;
+
+	data_page->size = db->config->chunk_size;
+	data_page->data = new char[db->config->chunk_size];
+	
+	offset = db->head_offset + db->config->chunk_size*page;
+	if((mem_read = fread_db(db->fd,data_page->data,offset,sizeof(char),db->config->chunk_size)) != db->config->chunk_size)
+	{
+		std::cout <<"Error! Node isn't read successesful!\n";
+		std::cout <<"Write: "<< mem_read <<"\n";
+		std::cout <<"Chunk size: "<<db->config->chunk_size <<"\n";	
+
+		delete data_page->data;
+		delete data_page;
+
+		return FAIL;
+	}
+
+	if(node == NULL)
+	{
+		node = data_page;
+		return SUCC;
+	}
+
+	memcpy(node->data,data_page->data,node->size);
+
+	delete data_page->data;
+	delete data_page;
+
+	return SUCC;
+	
+}
+
+int write_page(const struct DB* db,unsigned long page,struct DBT* node)
+{
+	unsigned long mem_write = 0;
+	long int offset = 0;
+	
+	struct DBT* data_page = new struct DBT;
+
+	data_page->size = db->config->chunk_size;
+	data_page->data = new char[db->config->chunk_size];
+	memset(data_page->data,0,db->config->chunk_size);	
+	
+	offset = db->head_offset + db->config->chunk_size*page;
+	if(node == NULL)
+	{
+		fwrite_db(db->fd,data_page->data,offset,sizeof(char),db->config->chunk_size);
+
+		delete data_page->data;
+		delete data_page;
+
+		return SUCC;
+	}
+	
+	memcpy(data_page->data,	node->data,node->size);
+
+	if((mem_write = fwrite_db(db->fd,data_page->data,offset,sizeof(char),db->config->chunk_size)) != db->config->chunk_size) 
+	{ 
+		std::cout <<"Error! Node isn't writen successesful!\n";
+		std::cout <<"Write: "<< mem_write <<"\n";
+		std::cout <<"Chunk size: "<<db->config->chunk_size <<"\n";
+		
+		delete data_page->data;
+		delete data_page;		
+
+		return FAIL;
+	}
+	
+	delete data_page->data;
+	delete data_page;
+
+	return SUCC;
+}
 
 //----------------------Функции для тестирования-------------------------
 int db_close(struct DB *db) {
@@ -194,7 +308,7 @@ int db_close(struct DB *db) {
 
 int db_del(const struct DB *db, void *key, size_t key_len) {
 	struct DBT keyt = {
-		.data = key,
+		.data = (char*)key,
 		.size = key_len
 	};
 	return db->del(db, &keyt);
@@ -203,7 +317,7 @@ int db_del(const struct DB *db, void *key, size_t key_len) {
 int db_get(const struct DB *db, void *key, size_t key_len,
 		void **val, size_t *val_len) {
 	struct DBT keyt = {
-		.data = key,
+		.data = (char*)key,
 		.size = key_len
 	};
 	struct DBT valt = {0, 0};
@@ -216,11 +330,11 @@ int db_get(const struct DB *db, void *key, size_t key_len,
 int db_put(const struct DB *db, void *key, size_t key_len,
 		void *val, size_t val_len) {
 	struct DBT keyt = {
-		.data = key,
+		.data = (char*)key,
 		.size = key_len
 	};
 	struct DBT valt = {
-		.data = val,
+		.data = (char*)val,
 		.size = val_len
 	};
 	return db->put(db, &keyt, &valt);

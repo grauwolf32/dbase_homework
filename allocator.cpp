@@ -53,7 +53,7 @@ void DBAllocator::db_read_table()
 	if(file_stat != NULL && d_base->fd != NULL && mem_size != 0)
 		if(fread_db(d_base->fd,file_stat,offset,sizeof(char),mem_size) != mem_size)
 			std::cout <<"Reading allocator table error!\n";
-	std::cout <<"allocator table was successesful read\n";
+
 	db_refresh();
 	
 }

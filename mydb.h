@@ -6,15 +6,8 @@
 #include "allocator.h"
 /* check `man dbopen` */
 
-struct Node //Кусочек памяти, для записи на диск, размером chunk size
-{
-	char* value;
-	size_t size;
-};
-
-
 struct DBT {
-	void  *data;
+	char  *data;
 	size_t size;
 };
 
@@ -57,6 +50,8 @@ struct DB *dbopen  (const char *file, struct DBC conf); //const struct DBC conf 
 //Размер чанка задается только при создании базы данных 
 
 int close(struct DB *db);
+int read_page(const struct DB* db,unsigned long page,struct DBT* node);
+int write_page(const struct DB* db,unsigned long page,struct DBT* node);
 long int write_offset(FILE* fd); /*Фсункция для написания смещений*/
 
 int db_close(struct DB *db);
