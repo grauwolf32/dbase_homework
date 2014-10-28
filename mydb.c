@@ -5,6 +5,7 @@
 
 #define SUCC 1
 #define FAIL 0
+#define BITS_IN_BYTE 8
 
 //--------------------------------------------------Функции инициализации-----------------------------------------------------
 struct DB *dbcreate(const char *file,struct DBC conf)
@@ -37,7 +38,7 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 	 std::cout <<"B-tree configuration: \n";
 	 std::cout <<"key count:\t"<<key_cnt<<"\n";
 	 std::cout <<"key length:\t"<<key_len<<"\n";
-	 std::cout <<"value length:\t"<<key_cnt<<"\n";
+	 std::cout <<"value length:\t"<<val_len<<"\n";
 	 std::cout <<"child count:\t"<<chld_cnt<<"\n";
 	 /*
 	   Можно потом дописать новый функционал, введя переменные длину ключа и значения, количество ключей
@@ -59,7 +60,7 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 
 	 long int head_offset = ftell(new_base->fd);	
 	 fwrite(&head_offset,sizeof(head_offset),1,new_base->fd);/* Загатовка позиции для будущего смещения корневого листа */
-	 unsigned long memory_size = (new_base->config->db_size/new_base->config->chunk_size) + 1;
+	 unsigned long memory_size = (new_base->config->db_size/new_base->config->chunk_size)/(sizeof(char)*BITS_IN_BYTE) + 1;
 	 
 	 std::cout <<"head offset: " << head_offset << "\n";
 	 fwrite(&memory_size,sizeof(memory_size),1,new_base->fd);
@@ -76,7 +77,12 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 	 */
 
 	 new_base->head_offset = ftell(new_base->fd);
-	 new_base->head->write_to_file(0,new_base);
+
+	 unsigned long head_page_num = 0;
+	 if(!db_all->db_alloc(head_page_num))std::cout << "Can not allocate! \n";
+
+	 std::cout <<"head page num:"<<head_page_num<<"\n";
+	 new_base->head->write_to_file(head_page_num,new_base);
 
 	 offset = ftell(new_base->fd);
 
@@ -127,7 +133,7 @@ struct DB *dbopen(const char *file, struct DBC conf)
 	 std::cout <<"B-tree configuration: \n";
 	 std::cout <<"key count:\t"<<key_cnt<<"\n";
 	 std::cout <<"key length:\t"<<key_len<<"\n";
-	 std::cout <<"value length:\t"<<key_cnt<<"\n";
+	 std::cout <<"value length:\t"<<val_len<<"\n";
 	 std::cout <<"child count:\t"<<chld_cnt<<"\n";
 	
 	 long int head_offset = 0;
@@ -151,6 +157,13 @@ struct DB *dbopen(const char *file, struct DBC conf)
 //------------------------Внутренние функции DB-------------------------
 int close(struct DB *db)
 {
+
+	if(db->db_all != NULL)
+	{
+		delete db->db_all;
+		db->db_all = NULL;
+		std::cout << "Allocator was successesfully deleted\n";
+	}
 	if(db->fd != NULL)
 	{
 		fclose(db->fd);
@@ -171,12 +184,6 @@ int close(struct DB *db)
 		db->config = NULL;
 		std::cout << "Tree config was successesfully deleted!\n";
 	}
-	if(db->db_all != NULL)
-	{
-		delete db->db_all;
-		db->db_all = NULL;
-		std::cout << "Allocator was successesfully deleted\n";
-	}
 	delete db;
 	db = NULL;
 	return 0;
@@ -195,15 +202,13 @@ int put(const struct DB *db, const struct DBT *key,struct DBT *data)
 {
 	int key_num = 0;
 	unsigned long data_page = 0;
-
         int res = 1;
 	res &= db->db_all->db_alloc(data_page);
 	res &= write_page(db,data_page,data);
-	
 	if(!res)
 		std::cout << "Error occured while puting element into database\n";
 
-	key_num = insert_key(db->head,key->data,data_page,db);//Нужно переписать insert_key
+	key_num = insert_key(db->head,key->data,data_page,db);
 	return key_num;	
 } 
 //---------------------------------------------------------------------

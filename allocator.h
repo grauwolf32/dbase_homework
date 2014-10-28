@@ -20,7 +20,7 @@ class DBAllocator
 	void   db_read_table();
 	void   db_refresh();
 	void   db_remove();	
- private:
+ //private:
 	struct DB* d_base;
 	unsigned long mem_size;
 	unsigned long last_ptr; //bits

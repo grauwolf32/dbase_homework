@@ -156,6 +156,12 @@ void keys_copy(BTreeNode* node,int key_i,char* key)
 	memcpy((node->keys + key_i*BTREE_KEY_LEN),key,BTREE_KEY_LEN);
 }
 
+void keys_copy(BTreeNode* node1,int key_i,BTreeNode* node2,int key_j)
+{
+	memcpy((node1->keys + key_i*BTREE_KEY_LEN),(node2->keys + key_j*BTREE_KEY_LEN),BTREE_KEY_LEN);
+}
+
+
 int disk_read_node(const struct DB* db,unsigned long page,BTreeNode* result)
 {
 	return result->read_from_file(page,db);
@@ -188,33 +194,37 @@ int search_key(BTreeNode* head,char* key,const struct DB* db,BTreeNode* result)
 int split_child(BTreeNode* x,unsigned int i,const struct DB* db)
 {
 	BTreeNode z,y;
-	y = *x;
 	int c = (BTREE_KEY_CNT/2);
+
+	disk_read_node(db,x->chld[i],&y);
+
 	z.leaf = y.leaf;
 	db->db_all->db_alloc(z.page);
-	z.nKeys = c - 1;
+	z.nKeys = c;
 
-	for(int j = 0;j < c - 1;j++)
+	for(int j = 0;j <= c - 1;j++) //Error, may be just j < c
 	{
-		keys_copy(&z,j,j+c);
+		keys_copy(&z,j,&y,j+c+1);
+		z.vals[j] = y.vals[j+c+1];
 	}
 
 	if(!y.leaf)
 	{
-		for(int j = 0;j < c;j++)
-			z.chld[j] = y.chld[j+c];
+		for(int j = 0;j <= c;j++)
+			z.chld[j] = y.chld[j+c+1];
 	}
 
-	y.nKeys = c - 1;
-	for(int j = x->nKeys-1;j > i+1;j--)
+	y.nKeys = c;
+	for(int j = x->nKeys;j > i;j--)
 	{
 		x->chld[j+1] = x->chld[j];
 	} 
-	x->chld[i+1] = z.page;
+	x->chld[i] = z.page;
 
 	for(int j = x->nKeys; j > i;j--)
 	{
 		keys_copy(x,j+1,j);
+		x->vals[j+1] = x->vals[j];
 	}
 	x->nKeys++;
 
@@ -229,14 +239,14 @@ int split_child(BTreeNode* x,unsigned int i,const struct DB* db)
 int insert_key(BTreeNode* head,char* key,const unsigned long data_page,const struct DB* db)
 {
 	BTreeNode* root = head;
-	if(root->nKeys == (2*BTREE_KEY_CNT-1))
+	if(root->nKeys == BTREE_KEY_CNT)
 	{
 		BTreeNode s;
 		db->db_all->db_alloc(s.page);
 		*head = s;
 		s.leaf = 0;
 		s.nKeys = 0;
-		s.keys[0] = root->page;
+		s.chld[0] = root->page;
 		split_child(&s,1,db); 
 		return insert_nonfull(&s,key,data_page,db);
 	}
@@ -247,18 +257,22 @@ int insert_key(BTreeNode* head,char* key,const unsigned long data_page,const str
 
 int insert_nonfull(BTreeNode* x,char* key,const unsigned long data_page,const struct DB* db)
 {
-	unsigned long i = x->nKeys;
+	int i = x->nKeys-1;
 	if(x->leaf)
 	{
 		while(i >= 0 && keys_compare(x,key,i) < 0)
 		{
 			keys_copy(x,i+1,i);
+			x->vals[i+1] = x->vals[i];
 			i--;
 		}
-		keys_copy(x,i+1,key);
+		i = i + 1;
+		keys_copy(x,i,key);
+		x->vals[i] = data_page;
+
 		x->nKeys++;
 		disk_write_node(db,x->page,x);
-		return i+1;
+		return i;
 	}
 	else
 	{
@@ -266,7 +280,7 @@ int insert_nonfull(BTreeNode* x,char* key,const unsigned long data_page,const st
 		i = i + 1;
 		BTreeNode c_i;
 		disk_read_node(db,x->chld[i],&c_i);
-		if(c_i.nKeys == (2*BTREE_KEY_CNT-1))
+		if(c_i.nKeys == BTREE_KEY_CNT)
 		{
 			split_child(x,i,db);
 			if(keys_compare(x,key,i) > 0)i++;

@@ -11,7 +11,7 @@ class DBAllocator
 {
  public:
 	friend struct DB *dbcreate(const char *file, const struct DBC conf);
-	DBAllocator(struct DBC* config,struct DB* dat_base,long int Offset,size_t size);
+	DBAllocator(struct DB* dat_base,long int Offset,size_t size);
 	~DBAllocator();
 	
 	int    db_alloc(unsigned long& page_num);

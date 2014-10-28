@@ -46,6 +46,7 @@ int keys_compare(BTreeNode* node,char* key,int key_i);
 void keys_copy(char* key_dest,char* key_source);  
 void keys_copy(BTreeNode* node,int key_i,int key_j);
 void keys_copy(BTreeNode* node,int key_i,char* key);
+void keys_copy(BTreeNode* node1,int key_i,BTreeNode* node2,int key_j);
 
 int disk_read_node(const struct DB* db,unsigned long page,BTreeNode* result);
 int disk_write_node(const struct DB* db,unsigned long page,BTreeNode* result);

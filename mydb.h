@@ -38,10 +38,12 @@ struct DB {
 	FILE*	     fd;
 	BTreeNode* head;
 	long int head_offset;		
-	
 
 }; /* Need for supporting multiple backends (HASH/BTREE) */
 
+int close(struct DB *db);
+int put(const struct DB *db, const struct DBT *key,struct DBT *data);
+int get(const struct DB *db, const struct DBT *key, struct DBT *data);
 
 
 /* don't store metadata in the file */
@@ -49,7 +51,6 @@ struct DB *dbcreate(const char *file, struct DBC conf);
 struct DB *dbopen  (const char *file, struct DBC conf); //const struct DBC conf не нужен здесь, он используется только при конфигурировании системы 
 //Размер чанка задается только при создании базы данных 
 
-int close(struct DB *db);
 int read_page(const struct DB* db,unsigned long page,struct DBT* node);
 int write_page(const struct DB* db,unsigned long page,struct DBT* node);
 long int write_offset(FILE* fd); /*Фсункция для написания смещений*/

@@ -7,7 +7,7 @@
 /* check `man dbopen` */
 
 struct DBT {
-	void  *data;
+	char  *data;
 	size_t size;
 };
 
@@ -38,7 +38,6 @@ struct DB {
 	FILE*	     fd;
 	BTreeNode* head;
 	long int head_offset;		
-	
 
 }; /* Need for supporting multiple backends (HASH/BTREE) */
 
