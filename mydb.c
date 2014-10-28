@@ -36,10 +36,10 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 					
 	 unsigned int key_cnt = BTREE_KEY_CNT, key_len = BTREE_KEY_LEN, val_len = BTREE_VAL_LEN,chld_cnt = BTREE_CHLD_CNT,errcode = 0;
 	 std::cout <<"B-tree configuration: \n";
-	 std::cout <<"key count:\t"<<key_cnt<<"\n";
-	 std::cout <<"key length:\t"<<key_len<<"\n";
-	 std::cout <<"value length:\t"<<val_len<<"\n";
-	 std::cout <<"child count:\t"<<chld_cnt<<"\n";
+	 std::cout <<"key count:\t"<< key_cnt <<"\n";
+	 std::cout <<"key length:\t"<< key_len <<"\n";
+	 std::cout <<"value length:\t"<< val_len <<"\n";
+	 std::cout <<"child count:\t"<< chld_cnt <<"\n";
 	 /*
 	   Можно потом дописать новый функционал, введя переменные длину ключа и значения, количество ключей
 		*/
@@ -61,8 +61,6 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 	 long int head_offset = ftell(new_base->fd);	
 	 fwrite(&head_offset,sizeof(head_offset),1,new_base->fd);/* Загатовка позиции для будущего смещения корневого листа */
 	 unsigned long memory_size = (new_base->config->db_size/new_base->config->chunk_size)/(sizeof(char)*BITS_IN_BYTE) + 1;
-	 
-	 std::cout <<"head offset: " << head_offset << "\n";
 	 fwrite(&memory_size,sizeof(memory_size),1,new_base->fd);
 
 	 long int offset = write_offset(new_base->fd);
@@ -79,11 +77,12 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 	 new_base->head_offset = ftell(new_base->fd);
 
 	 unsigned long head_page_num = 0;
-	 if(!db_all->db_alloc(head_page_num))std::cout << "Can not allocate! \n";
+	 db_all->db_add_head();
 
 	 std::cout <<"head page num:"<<head_page_num<<"\n";
 	 new_base->head->write_to_file(head_page_num,new_base);
-
+	 	 
+	 std::cout <<"head offset: " << new_base->head_offset << "\n";
 	 offset = ftell(new_base->fd);
 
 	 fseek(new_base->fd,head_offset,SEEK_SET);
@@ -245,7 +244,6 @@ int read_page(const struct DB* db,unsigned long page,struct DBT* node)//Напи
 
 		delete data_page->data;
 		delete data_page;
-
 		return FAIL;
 	}
 

@@ -243,7 +243,7 @@ int insert_key(BTreeNode* head,char* key,const unsigned long data_page,const str
 	{
 		BTreeNode s;
 		db->db_all->db_alloc(s.page);
-		*head = s;
+		*head = s; // Evil Root;
 		s.leaf = 0;
 		s.nKeys = 0;
 		s.chld[0] = root->page;

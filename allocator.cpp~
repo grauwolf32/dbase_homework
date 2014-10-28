@@ -32,6 +32,13 @@ DBAllocator::~DBAllocator()
 	d_base = NULL;
 }
 
+void   DBAllocator::db_add_head()
+{
+	if(last_ptr == 0 && mem_used == 0)
+	set_bit(file_stat,mem_size,0);
+	mem_used++;
+}
+
 void DBAllocator::db_refresh()
 {
 	last_ptr = last_set_bit(file_stat,mem_size);

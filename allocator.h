@@ -10,17 +10,22 @@
 class DBAllocator
 {
  public:
-	friend struct DB *dbcreate(const char *file, const struct DBC conf);
 	DBAllocator(struct DB* dat_base,long int Offset,size_t size);
 	~DBAllocator();
-	
+
+	//friend void   set_bit(char* ptr,size_t size,unsigned long n);
+	//friend bool   get_bit(char* ptr,size_t size,unsigned long n);
+	//friend void unset_bit(char* ptr,size_t size,unsigned long n);
+
 	int    db_alloc(unsigned long& page_num);
 	void   db_free(unsigned long page );
+	void   db_add_head();
+
 	void   db_write_table();
 	void   db_read_table();
 	void   db_refresh();
 	void   db_remove();	
- //private:
+ private:
 	struct DB* d_base;
 	unsigned long mem_size;
 	unsigned long last_ptr; //bits

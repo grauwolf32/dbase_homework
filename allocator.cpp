@@ -32,6 +32,13 @@ DBAllocator::~DBAllocator()
 	d_base = NULL;
 }
 
+void   DBAllocator::db_add_head()
+{
+	if(last_ptr == 0 && mem_used == 0)
+	set_bit(file_stat,mem_size,0);
+	mem_used++;
+}
+
 void DBAllocator::db_refresh()
 {
 	last_ptr = last_set_bit(file_stat,mem_size);
@@ -68,10 +75,10 @@ int DBAllocator::db_alloc(unsigned long& page_num)
 	{
 		if(last_ptr < mem_size*BITS_IN_BYTE*sizeof(char))		
 		{	
-			set_bit(file_stat,mem_size,last_ptr);
-			page_num = last_ptr;
 			last_ptr++;
 			mem_used++;
+			set_bit(file_stat,mem_size,last_ptr);
+			page_num = last_ptr;
 
 			return 1;
 		}

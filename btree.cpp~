@@ -224,6 +224,7 @@ int split_child(BTreeNode* x,unsigned int i,const struct DB* db)
 	for(int j = x->nKeys; j > i;j--)
 	{
 		keys_copy(x,j+1,j);
+		x->vals[j+1] = x->vals[j];
 	}
 	x->nKeys++;
 
