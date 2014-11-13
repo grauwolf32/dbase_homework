@@ -26,7 +26,7 @@ DBAllocator::~DBAllocator()
 {
 	db_write_table();
 	if(file_stat != NULL)
-		delete file_stat;
+		delete[] file_stat;
 	
 	file_stat = NULL;
 	d_base = NULL;
@@ -68,7 +68,7 @@ void DBAllocator::db_read_table()
 	db_refresh();
 	
 }
-int DBAllocator::db_alloc(unsigned long& page_num)
+int DBAllocator::db_alloc(long long& page_num)
 {
 	
 	if(mem_used < mem_size*BITS_IN_BYTE*sizeof(char))
@@ -94,7 +94,7 @@ int DBAllocator::db_alloc(unsigned long& page_num)
 
 	else return 0;	
 }
-void DBAllocator::db_free(unsigned long page_num)
+void DBAllocator::db_free(long long page_num)
 {
 	if(get_bit(file_stat,mem_size,page_num) == 0)return;
 	if(page_num == last_ptr && last_ptr != 0)last_ptr--;
@@ -123,7 +123,7 @@ size_t fwrite_db(FILE* fd,void* ptr,long int offset,size_t size,size_t count)
 size_t last_set_bit(char* ptr,size_t size)
 {
 	size_t last_not_null = 0;
-	for(unsigned long i = 0; i < size*sizeof(char)*BITS_IN_BYTE;i++)
+	for(long long i = 0; i < size*sizeof(char)*BITS_IN_BYTE;i++)
 	{
 		if(get_bit(ptr,size,i))last_not_null = i;
 	}
@@ -131,14 +131,14 @@ size_t last_set_bit(char* ptr,size_t size)
 }
 size_t memory_used(char* ptr,size_t size)
 {
-	unsigned long mem_used = 0;
+	long long mem_used = 0;
 	for(size_t i = 0; i < size*sizeof(char)*BITS_IN_BYTE;i++)
 	{
 		if(get_bit(ptr,size,i))mem_used++;
 	}
 	return (size_t)mem_used;
 }
-void   set_bit(char* ptr,size_t size,unsigned long n)
+void   set_bit(char* ptr,size_t size,long long n)
 {
 	unsigned offset = n % (sizeof(char)*BITS_IN_BYTE);
 	unsigned segment = n / (sizeof(char)*BITS_IN_BYTE);
@@ -146,7 +146,7 @@ void   set_bit(char* ptr,size_t size,unsigned long n)
 	mask <<= offset;
 	ptr[segment] |= mask;
 }
-void unset_bit(char* ptr,size_t size,unsigned long n)
+void unset_bit(char* ptr,size_t size,long long n)
 {
 	unsigned offset = n % (sizeof(char)*BITS_IN_BYTE);
 	unsigned segment = n / (sizeof(char)*BITS_IN_BYTE);
@@ -155,7 +155,7 @@ void unset_bit(char* ptr,size_t size,unsigned long n)
 	ptr[segment] &= ~mask;
 }
 
-bool   get_bit(char* ptr,size_t size,unsigned long n)
+bool   get_bit(char* ptr,size_t size,long long n)
 {
 	unsigned offset = n % (sizeof(char)*BITS_IN_BYTE);
 	unsigned segment = n / (sizeof(char)*BITS_IN_BYTE);

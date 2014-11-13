@@ -21,8 +21,18 @@ int main()
     Value.size = BTREE_VAL_LEN;
     Key.data = key;
     Key.size = BTREE_KEY_LEN;
-    for(int i = 0;i < 48;i++)
+    
+      for(int i = 0;i < 1000;i++)
     	put(db,&Key,&Value);
+	
+    std::cout <<"------------------------------------------------------------------------\n";
+    print_tree(db->head,db,0);
+    
+   
+   
+    delete[] key;
+    delete[] value;
+	
     close(db);
     return 0;
 }

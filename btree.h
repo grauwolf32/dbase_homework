@@ -9,6 +9,8 @@
 #define BTREE_VAL_LEN 4092
 #define BTREE_CHLD_CNT (BTREE_KEY_CNT+1)
 
+#define MAX_TREE_LEVEL 1000
+
 //Переделать под структуру так как как классы плохо проецируются на память (!!!!) Или добавить метод write и read
 //Точно надо написать read и write методы т.к. хз, как будут писаться динамические массивы
 
@@ -19,16 +21,17 @@ class BTreeNode {
 	BTreeNode(const BTreeNode& rnode);
 	BTreeNode& operator=(const BTreeNode& rnode);
 
-	int	read_from_file(unsigned long page,const struct DB* db); //Нельзя так просто, нужно организовать ноды для работы с chunk' ом
-	int	write_to_file(unsigned long page,const struct DB* db); 
+	int	read_from_file(long long page,const struct DB* db); //Нельзя так просто, нужно организовать ноды для работы с chunk' ом
+	int	write_to_file(long long page,const struct DB* db); 
 	unsigned int size();
+	void print_node();
 	
-	unsigned long page;
-	unsigned long nKeys;
+	long long page;
+	long long nKeys;
 	int	 leaf;
-	char *keys;	    //Хранит значение ключей
-	unsigned long *chld;
-	unsigned long *vals;//Указатель на страницу, в которой храняться данные
+	char 	*keys;	    //Хранит значение ключей
+	long long *chld;
+	long long *vals;//Указатель на страницу, в которой храняться данные
  private:
 	unsigned int struct_size; //Хранит размер, который занимает дельная информация в классе
 	
@@ -36,9 +39,11 @@ class BTreeNode {
 
 int search_key(BTreeNode* head,char* key,const struct DB* db,BTreeNode* result); //Возвращает номер ключа
 int delete_key(BTreeNode* head,char* key,const struct DB* db);
-int insert_key(BTreeNode* head,char* key,const unsigned long data_page,const struct DB* db); //Возвращает номер ключа
-int insert_nonfull(BTreeNode* head,char* key,const unsigned long data_page,const struct DB* db); //Возвращает номер ключа
-int split_child(BTreeNode* x,unsigned int i,const struct DB* db);
+int split_chld(BTreeNode* head, int k,const struct DB* db);
+int insert_key_test(BTreeNode* head,char* key,const long long data_page,const struct DB* db);
+
+int insert_key(BTreeNode* head,char* key,const long long data_page,const struct DB* db);
+int insert_nonefull(BTreeNode* head,char* key,const long long data_page,const struct DB* db);
 
 int keys_compare(BTreeNode* node,int key_i,int key_j);
 int keys_compare(BTreeNode* node,char* key,int key_i);
@@ -48,7 +53,8 @@ void keys_copy(BTreeNode* node,int key_i,int key_j);
 void keys_copy(BTreeNode* node,int key_i,char* key);
 void keys_copy(BTreeNode* node1,int key_i,BTreeNode* node2,int key_j);
 
-int disk_read_node(const struct DB* db,unsigned long page,BTreeNode* result);
-int disk_write_node(const struct DB* db,unsigned long page,BTreeNode* result);
+void print_tree(BTreeNode* head,struct DB* db,int n);
+int disk_read_node(const struct DB* db,long long page,BTreeNode* result);
+int disk_write_node(const struct DB* db,long long page,BTreeNode* result);
 
 #endif

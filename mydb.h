@@ -51,8 +51,8 @@ struct DB *dbcreate(const char *file, struct DBC conf);
 struct DB *dbopen  (const char *file, struct DBC conf); //const struct DBC conf не нужен здесь, он используется только при конфигурировании системы 
 //Размер чанка задается только при создании базы данных 
 
-int read_page(const struct DB* db,unsigned long page,struct DBT* node);
-int write_page(const struct DB* db,unsigned long page,struct DBT* node);
+int read_page(const struct DB* db,long long page,struct DBT* node);
+int write_page(const struct DB* db,long long page,struct DBT* node);
 long int write_offset(FILE* fd); /*Фсункция для написания смещений*/
 
 int db_close(struct DB *db);

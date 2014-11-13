@@ -60,7 +60,7 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 
 	 long int head_offset = ftell(new_base->fd);	
 	 fwrite(&head_offset,sizeof(head_offset),1,new_base->fd);/* Загатовка позиции для будущего смещения корневого листа */
-	 unsigned long memory_size = (new_base->config->db_size/new_base->config->chunk_size)/(sizeof(char)*BITS_IN_BYTE) + 1;
+	 long long memory_size = (new_base->config->db_size/new_base->config->chunk_size)/(sizeof(char)*BITS_IN_BYTE) + 1;
 	 fwrite(&memory_size,sizeof(memory_size),1,new_base->fd);
 
 	 long int offset = write_offset(new_base->fd);
@@ -76,7 +76,7 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 
 	 new_base->head_offset = ftell(new_base->fd);
 
-	 unsigned long head_page_num = 0;
+	 long long head_page_num = 0;
 	 db_all->db_add_head();
 
 	 std::cout <<"head page num:"<<head_page_num<<"\n";
@@ -137,7 +137,7 @@ struct DB *dbopen(const char *file, struct DBC conf)
 	
 	 long int head_offset = 0;
 	 long int offset = 0;
-	 unsigned long memory_size = 0;
+	 long long memory_size = 0;
 	
 	 fread(&head_offset,sizeof(head_offset),1,new_base->fd);	
 	 fread(&memory_size,sizeof(memory_size),1,new_base->fd);
@@ -190,6 +190,7 @@ int close(struct DB *db)
 
 int get(const struct DB *db, const struct DBT *key, struct DBT *data)
 {
+	std::cout <<"Reading element from data base...\n";
 	BTreeNode* result = new BTreeNode;
 	int page = -1;
 	if((page = search_key(db->head,key->data,db, result)) < 0);
@@ -199,8 +200,10 @@ int get(const struct DB *db, const struct DBT *key, struct DBT *data)
 }
 int put(const struct DB *db, const struct DBT *key,struct DBT *data)
 {
+	
+	std::cout <<"Putting element from data base...\n";
 	int key_num = 0;
-	unsigned long data_page = 0;
+	long long data_page = 0;
         int res = 1;
 	res &= db->db_all->db_alloc(data_page);
 	res &= write_page(db,data_page,data);
@@ -225,9 +228,9 @@ long int write_offset(FILE* fd)
 	return current_offset;
 }
 
-int read_page(const struct DB* db,unsigned long page,struct DBT* node)//Написать загрузку данных в node
+int read_page(const struct DB* db,long long page,struct DBT* node)//Написать загрузку данных в node
 {
-	unsigned long mem_read = 0;
+	long long mem_read = 0;
 	long int offset = 0;
 
 	struct DBT* data_page = new struct DBT;
@@ -239,11 +242,11 @@ int read_page(const struct DB* db,unsigned long page,struct DBT* node)//Напи
 	if((mem_read = fread_db(db->fd,data_page->data,offset,sizeof(char),db->config->chunk_size)) != db->config->chunk_size)
 	{
 		std::cout <<"Error! Node isn't read successesful!\n";
-		std::cout <<"Write: "<< mem_read <<"\n";
+		std::cout <<"Read: "<< mem_read <<"\n";
 		std::cout <<"Chunk size: "<<db->config->chunk_size <<"\n";	
 
-		delete data_page->data;
-		delete data_page;
+		if(data_page->data != NULL)delete[] data_page->data;
+		if(data_page != NULL)delete data_page;
 		return FAIL;
 	}
 
@@ -255,16 +258,16 @@ int read_page(const struct DB* db,unsigned long page,struct DBT* node)//Напи
 
 	memcpy(node->data,data_page->data,node->size);
 
-	delete data_page->data;
-	delete data_page;
+	if(data_page->data != NULL)delete[] data_page->data;
+	if(data_page != NULL)delete data_page;
 
 	return SUCC;
 	
 }
 
-int write_page(const struct DB* db,unsigned long page,struct DBT* node)
+int write_page(const struct DB* db,long long page,struct DBT* node)
 {
-	unsigned long mem_write = 0;
+	long long mem_write = 0;
 	long int offset = 0;
 	
 	struct DBT* data_page = new struct DBT;
@@ -278,8 +281,8 @@ int write_page(const struct DB* db,unsigned long page,struct DBT* node)
 	{
 		fwrite_db(db->fd,data_page->data,offset,sizeof(char),db->config->chunk_size);
 
-		delete data_page->data;
-		delete data_page;
+		if(data_page->data != NULL)delete[] data_page->data;
+		if(data_page != NULL)delete data_page;
 
 		return SUCC;
 	}
@@ -292,14 +295,14 @@ int write_page(const struct DB* db,unsigned long page,struct DBT* node)
 		std::cout <<"Write: "<< mem_write <<"\n";
 		std::cout <<"Chunk size: "<<db->config->chunk_size <<"\n";
 		
-		delete data_page->data;
-		delete data_page;		
+		if(data_page->data != NULL)delete[] data_page->data;
+		if(data_page != NULL)delete data_page;		
 
 		return FAIL;
 	}
 	
-	delete data_page->data;
-	delete data_page;
+	if(data_page->data != NULL)delete[] data_page->data;
+	if(data_page != NULL)delete data_page;
 
 	return SUCC;
 }
