@@ -1,5 +1,7 @@
 #include <iostream>
+#include <time.h>
 #include "mydb.h"
+#include "debug.h"
 
 using namespace std;
 
@@ -7,10 +9,13 @@ int main()
 {
     struct DBC config;
     config.chunk_size = 4096;
-    config.db_size = 1024*1024*16;
+    config.mem_size = 4*1024;
+    config.db_size = 1024*1024*2;
+
     struct DB* db = dbcreate("base.db",config);
     close(db);
     db = dbopen("base.db",config);
+
     char* key = new char[BTREE_KEY_LEN];
     char* value = new  char[BTREE_VAL_LEN];
     memset(key,0x11,BTREE_KEY_LEN);
@@ -21,12 +26,14 @@ int main()
     Value.size = BTREE_VAL_LEN;
     Key.data = key;
     Key.size = BTREE_KEY_LEN;
-    
+    time_t time = clock();
       for(int i = 0;i < 1000;i++)
     	put(db,&Key,&Value);
-	
+
+    time = clock() - time;
+    std::cout <<"Estimated time: "<<(double)time/CLOCKS_PER_SEC<<"\n";
     std::cout <<"------------------------------------------------------------------------\n";
-    print_tree(db->head,db,0);
+    //print_tree(db->head,db,0);
     
    
    

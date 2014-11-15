@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "mydb.h"
+#include "debug.h"
 
 
 class DBAllocator

@@ -3,11 +3,12 @@
 #include "btree.h"
 #include "mydb.h"
 #include "allocator.h"
+#include "debug.h"
 
 #define SUCC 1
 #define FAIL 0
 
-//---------------------------------------Функции класса--------------------------------
+/*-------------------Members of class functions-------------------*/
 BTreeNode::BTreeNode()
 {
 	chld = new long long[BTREE_CHLD_CNT];
@@ -72,13 +73,14 @@ BTreeNode& BTreeNode::operator=(const BTreeNode& rnode)
 int 	 BTreeNode::read_from_file(long long page,const struct DB* db)
 {
 	struct DBT node;
+	int res = SUCC;
 	unsigned int ptr = 0;
 	
 	node.data = new char[db->config->chunk_size];
 	node.size = db->config->chunk_size;
 	memset(node.data,0,node.size);
 
-	read_page(db,page,&node);
+	res = read_page(db,page,&node);
 	ptr = 0;
 
 	memcpy((char*)&this->page,node.data,sizeof(page));	
@@ -95,11 +97,12 @@ int 	 BTreeNode::read_from_file(long long page,const struct DB* db)
 	ptr += BTREE_KEY_CNT*sizeof(long long);
 	
 	delete[] node.data;
-	return SUCC;
+	return res;
 }
 int	 BTreeNode::write_to_file(long long page,const struct DB* db)
 {
 	struct DBT node;
+	int res = SUCC;
 	unsigned int ptr = 0;
 	node.data = new char[struct_size];
 	node.size = struct_size;
@@ -118,15 +121,11 @@ int	 BTreeNode::write_to_file(long long page,const struct DB* db)
 	memcpy((node.data + ptr),vals,BTREE_KEY_CNT*sizeof(long long));
 	ptr += BTREE_KEY_CNT*sizeof(long long);
 	
-	write_page(db,page,&node);
+	res = write_page(db,page,&node);
 	
-		//-----------------------------------------------------------------
-	std::cout <<"WWWWW"<<"page "<<page<<"nKeys "<<nKeys<<"leaf "<<leaf<<"chld[0]"<<chld[0] <<"vals[0]: "<<vals[0]<<"vals[1]: "<<vals[1]<<"vals[2]: "<<vals[2]<<"\n";
-	//-----------------------------------------------------------------
-
 	delete[] node.data;
 
-	return SUCC;
+	return res;
 }
 
 unsigned int BTreeNode::size()
@@ -158,7 +157,7 @@ void BTreeNode::print_node()
 	}
 	std::cout<<"\n\n";
 }
-//------------------------------------Внешние функции------------------------------------------
+/*-------------------Utility functions-------------------*/
 void print_tree(BTreeNode* head,struct DB* db,int n)
 {
 	if(n > MAX_TREE_LEVEL)return;
@@ -178,7 +177,6 @@ void print_tree(BTreeNode* head,struct DB* db,int n)
 					print_tree(&node,db,n+1);
 				}
 			}
-			else std::cout <<"Empty child\n";
 		}
 	}
  	return;
@@ -229,9 +227,13 @@ int disk_write_node(const struct DB* db,long long page,BTreeNode* source)
 }
 
 
-//--------------------------Реализация функций структуры B-дерева---------------------------------------------
+/*------------------- B-tree function realization-------------------*/
 int search_key(BTreeNode* head,char* key,const struct DB* db,BTreeNode* result)
 {
+	#ifdef _DEBUG_
+		std::cout << "Searching key...\n";
+	#endif
+
 	unsigned int i = 0;
 	while(i < head->nKeys && keys_compare(head,key,i) > 0)i++;
 	if(i < head->nKeys && keys_compare(head,key,i) == 0)
@@ -247,48 +249,18 @@ int search_key(BTreeNode* head,char* key,const struct DB* db,BTreeNode* result)
 	}
 }
 
-
-
-int insert_key_test(BTreeNode* head,char* key,const long long data_page,const struct DB* db)
-{
-	
-	if(head->nKeys > BTREE_KEY_CNT)
-	{
-		std::cout<<"There is too many keys: "<<head->nKeys<<" on page: "<<head->page<<"\n";
-	}
-
-	BTreeNode temp;
-	if(head->nKeys == BTREE_KEY_CNT)
-	{
-		int i = 0;
-		
-			if(head->chld[i] == -1)
-			{
-				db->db_all->db_alloc(head->chld[i]);
-				head->leaf = 0;
-				keys_copy(&temp,i,key);
-				temp.nKeys++;
-				temp.page = head->chld[i];
-				temp.vals[i] = data_page;
-				head->write_to_file(head->page,db);
-				temp.write_to_file(temp.page,db);
-				return SUCC;
-			}
-
-		temp.read_from_file(head->chld[i],db);
-		return insert_key_test(&temp,key,data_page,db);
-	}		
-	else {
-		keys_copy(head,head->nKeys,key);
-     		head->vals[head->nKeys] = data_page;
-		head->nKeys++;
-		head->write_to_file(head->page,db);
-		}	
-}
-
 int insert_key(BTreeNode* head,char* key,const long long data_page,const struct DB* db)
 {
-	std::cout << "Inserting key...\n";
+	#ifdef _DEBUG_
+		std::cout << "Inserting key...\n";
+	#endif
+
+	if(head->nKeys > BTREE_KEY_CNT)
+	{
+		std::cout<<"There is too many keys: "<<head->nKeys<<" on page: "<<head->page<<"...\n";
+		return FAIL;
+	}
+	
 	if(head->nKeys == BTREE_KEY_CNT)
 	{
 		BTreeNode z;
@@ -311,11 +283,13 @@ int insert_key(BTreeNode* head,char* key,const long long data_page,const struct 
 
 int insert_nonefull(BTreeNode* head,char* key,const long long data_page,const struct DB* db)
 {
-	std::cout << "Insert to none full element...\n";
+	#ifdef _DEBUG_
+		std::cout << "Inserting into none full node...\n";
+	#endif
+
 	int i = head->nKeys - 1;
 	if(head->leaf)
 	{
-		std::cout <<"The element is leaf...\n";
 		while(keys_compare(head,key,i) < 0 && i >= 0)i--;
 		i = i + 1;
 		for(int j = head->nKeys-1;j > i;j--)
@@ -336,7 +310,6 @@ int insert_nonefull(BTreeNode* head,char* key,const long long data_page,const st
 	}
 	else
 	{
-		std::cout <<"The element is not leaf...\n";
 		while(keys_compare(head,key,i) < 0 && i >= 0)i--;
 		i = i+1;
 		BTreeNode ci;
@@ -353,14 +326,17 @@ int insert_nonefull(BTreeNode* head,char* key,const long long data_page,const st
 
 int split_chld(BTreeNode* head, int k,const struct DB* db)
 { 
-	std::cout <<"Splitting childs...\n";
+	#ifdef _DEBUG_
+		std::cout << "Splitting child...\n";
+	#endif
+
 	BTreeNode x,y;
 	int res = SUCC;
 	int middle = BTREE_KEY_CNT/2;
 	
 	if(head->chld[k] == -1)
 	{
-		std::cout <<"Child "<<k<<" is empty!\n";
+		std::cout <<"Child "<< k <<" is empty!\n";
 		return FAIL;
 	}
 	res = x.read_from_file(head->chld[k],db);
@@ -402,5 +378,215 @@ int split_chld(BTreeNode* head, int k,const struct DB* db)
 	return res;
 }
 
+void erase_i_key(BTreeNode* head,int i,int shift,const struct DB* db)
+{
+	if(!head->leaf)
+	{
+		for(int j = i;j < head->nKeys-shift;j++)
+		{
+			head->chld[j+shift] = head->chld[j+shift+1];
+		}
+		head->chld[head->nKeys] = -1;
+	}
+
+	for(int j = i;i < head->nKeys-1;i++)
+	{
+		keys_copy(head,j,j+1);
+		head->vals[j] = head->vals[j+1];
+	}
+	head->nKeys--;
+	head->write_to_file(head->page,db);
+
+	return;
+}
+
+int delete_key(BTreeNode* head,char* key,const struct DB* db)
+{
+	#ifdef _DEBUG_
+		std::cout << "Deleting key...\n";
+	#endif
+
+	BTreeNode left,right,temp;
+	int is_left = 0,is_right = 0,res = SUCC;
+	int t = BTREE_KEY_CNT/2 + 1; 
+	unsigned int i = 0;
+
+	if(head->leaf)
+	{	
+		while(i < head->nKeys && keys_compare(head,key,i) > 0)i++;
+		if(i < head->nKeys && keys_compare(head,key,i) == 0)
+		{
+			db->db_all->db_free(head->vals[i]); /* Free page in the database */
+			erase_i_key(head,i,0,db);
+			return SUCC;
+		} 
+		else return FAIL;
+	}
+
+	while(i < head->nKeys && keys_compare(head,key,i) > 0)i++;
+
+	/* If key is in this leaf */
+	if(i < head->nKeys && keys_compare(head,key,i) == 0) 
+	{
+		/* Reading adjoint nodes */
+		if(head->chld[i] != -1)
+		{
+			res &= left.read_from_file(head->chld[i],db);
+			if(res == SUCC)is_left = 1;	
+		}
+	
+		if(is_left && left.nKeys >= t)
+		{
+			db->db_all->db_free(head->vals[i]);
+			keys_copy(head,i,&left,left.nKeys-1); 
+			head->vals[i] = left.vals[left.nKeys-1];
+
+			res &= head->write_to_file(head->page,db);
+			res &= delete_key(&left,left.keys+(left.nKeys-1)*BTREE_KEY_LEN,db); /* ?????????? */
+			return res;
+		}
+
+		/* Reading adjoint nodes */
+		if(i < head->nKeys)
+		{
+			if(head->chld[i+1] != -1)
+			{
+				res &= right.read_from_file(head->chld[i],db);
+				if(res == SUCC)is_right = 1;
+			}
+		}
+
+		if(is_right && right.nKeys >= t)
+		{
+			db->db_all->db_free(head->vals[i]);
+			keys_copy(head,i,&right,0); /*Shuld i copy childs and delete head->vals[i]*/
+			head->vals[i] = right.vals[0];
+
+			res &= head->write_to_file(head->page,db);
+			res &= delete_key(&right,right.keys,db); /* ??????????*/
+			return res;
+		}
+
+		if(is_left && is_right) /*If left and right adjoint nodes exists, and both contain t-1 keys */
+		{
+			int ptr = 0;
+			int key_pos = left.nKeys;
+
+			keys_copy(&left,left.nKeys,head->keys+i*BTREE_KEY_LEN);
+			left.vals[key_pos] = head->vals[i];
+			/*Merging left and right pages into left */
+			for(int j = left.nKeys+1;j < left.nKeys + right.nKeys+1;j++)
+			{
+				keys_copy(&left,j,&right,ptr);
+				left.vals[j] = right.vals[ptr];
+				left.nKeys++;
+				ptr = ptr+1;
+			}
+
+			ptr = 0;
+			for(int j = key_pos+1;j < left.nKeys+1;j++)
+			{
+				left.chld[j] = right.chld[ptr];
+				ptr = ptr + 1;
+			}
+			/* Cleaning head */
+			erase_i_key(head,i,1,db);
+
+			/* Updating pages in data base */
+			left.write_to_file(left.page,db);
+
+			/*Deleting page from db*/
+			db->db_all->db_free(right.page); 
+
+			res &= delete_key(&left,left.keys + key_pos*BTREE_KEY_LEN,db);
+			return res;
+		}
+
+		if(is_left) /* If there is only left subtree with t-1 keys */
+		{
+			int key_pos = left.nKeys;
+			keys_copy(&left,left.nKeys,head,i);
+			
+			key_pos = left.nKeys;
+			left.nKeys++;
+			left.write_to_file(left.page,db);
+			
+			erase_i_key(head,i,1,db);  //Correct ? M.b. smthng lost here ? 
+
+			res &= delete_key(&left,left.keys + key_pos*BTREE_KEY_LEN,db);
+			return res;
+		}
+
+		if(is_right) /* If there is only right subtree with t-1 keys */
+		{
+			int key_pos = right.nKeys;
+			keys_copy(&right,right.nKeys,head,i);
+		
+			key_pos = right.nKeys;
+			right.nKeys++;
+			right.write_to_file(right.page,db);
+			
+			erase_i_key(head,i,0,db);
+
+			res &= delete_key(&right,right.keys + key_pos*BTREE_KEY_LEN,db);
+			return res;
+		}
+
+		erase_i_key(head,i,0,db); /* If there no adjoining subtrees */
+	}
+
+	else /* If key is in the subleaf */
+	{
+		temp.read_from_file(head->chld[i],db);
+		if(temp.nKeys >= t)
+		{
+			res &= delete_key(&temp,head->keys + i*BTREE_KEY_LEN,db);
+			return res;
+		}
+		/* Reading adjoint nodes */
+		if(i > 0)
+		{
+			if(head->chld[i-1] != -1)
+			{
+				res &= left.read_from_file(head->chld[i-1],db);
+				if(res == SUCC)is_left = 1;	
+			}	
+		}
+		if(i < head->nKeys)
+		{
+			if(head->chld[i+1] != -1)
+			{
+				res &= right.read_from_file(head->chld[i],db);
+				if(res == SUCC)is_right = 1;
+			}
+		}
+
+		if(is_left && left.nKeys >= t)
+		{
+			keys_copy(&temp,temp.nKeys,head,i);
+			temp.vals[temp.nKeys] = head->vals[i];
+
+			temp.nKeys++;
+
+			keys_copy(head,i,&left,left.nKeys-1);
+			return res;
+		}
+
+		if(is_right && right.nKeys >= t)
+		{
+			keys_copy(&temp,temp.nKeys,head,i);
+			temp.vals[temp.nKeys] = head->vals[i];
+
+			temp.nKeys++;
+
+			keys_copy(head,i,&left,left.nKeys-1);
+			return res;
+		}
+		
+	
+	return res;
+
+	}
+}
 
 

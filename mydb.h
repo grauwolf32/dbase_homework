@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include "btree.h"
 #include "allocator.h"
+#include "cache.h"
+#include "debug.h"
 /* check `man dbopen` */
 
 struct DBT {
@@ -15,15 +17,16 @@ struct DBC {
      
         size_t db_size;		//Maximum on-disk file size  512MB by default
         size_t chunk_size;	//Maximum chunk (node/data chunk) size 4KB by default	
-
+	size_t mem_size;
 
 	/* For future uses - maximum cached memory size
 	 * 16MB by default
-	 * size_t mem_size; */
+	 */
 };
 
 class DBAllocator;
 class BTreeNode;
+class cache;
 
 struct DB {
 
@@ -37,6 +40,7 @@ struct DB {
 	DBAllocator* db_all;
 	FILE*	     fd;
 	BTreeNode* head;
+	cache* db_cache;
 	long int head_offset;		
 
 }; /* Need for supporting multiple backends (HASH/BTREE) */

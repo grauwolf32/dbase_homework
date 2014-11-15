@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "allocator.h"
+#include "debug.h"
 
 #define BITS_IN_BYTE 8
 

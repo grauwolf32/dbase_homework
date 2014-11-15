@@ -2,10 +2,13 @@
 #include "mydb.h"
 #include "btree.h"
 #include "allocator.h"
+#include "cache.h"
+#include "debug.h"
 
 #define SUCC 1
 #define FAIL 0
 #define BITS_IN_BYTE 8
+
 
 //--------------------------------------------------Функции инициализации-----------------------------------------------------
 struct DB *dbcreate(const char *file,struct DBC conf)
@@ -23,11 +26,16 @@ struct DB *dbcreate(const char *file,struct DBC conf)
  	 if(new_base->fd == NULL)
 	 	 std::cout<<"Error! File wasn't created!\n";
 
+	 cache* db_cache = new cache(conf.mem_size,new_base);
+	 new_base->db_cache = db_cache;
+
 	 std::cout <<"Data base configuration: \n";
 	 std::cout <<"Data base size:\t"<<new_base->config->db_size<<"\n";
 	 std::cout <<"Chunk size:\t"<< new_base->config->chunk_size<<"\n";
+	 std::cout <<"Cache size:\t"<<new_base->db_cache->cache_size<<"\n";
 	
-	new_base->head = new BTreeNode;
+	 new_base->head =(BTreeNode*)NULL;
+	 new_base->head = new BTreeNode;
 		
 	 /*int fseek ( FILE * stream, long int offset, int origin );
 	   SEEK_SET	Beginning of file
@@ -41,8 +49,8 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 	 std::cout <<"value length:\t"<< val_len <<"\n";
 	 std::cout <<"child count:\t"<< chld_cnt <<"\n";
 	 /*
-	   Можно потом дописать новый функционал, введя переменные длину ключа и значения, количество ключей
-		*/
+	  *  Можно потом дописать новый функционал, введя переменные длину ключа и значения, количество ключей
+	  */
 
 	 if((errcode = fwrite(&key_cnt,sizeof(key_cnt),1,new_base->fd)) != 1)std::cout << "key count wasn't write successesfully!\n";
 	 if((errcode = fwrite(&key_len,sizeof(key_len),1,new_base->fd)) != 1)std::cout << "key len wasn't write successesfully!\n";
@@ -56,11 +64,15 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 	 if((errcode =fwrite(&new_base->config->chunk_size,sizeof(new_base->config->chunk_size),1,new_base->fd)) != 1)
 	 { 
 		std::cout << "chunk size wasn't sucessesful written\n";
+	 }
+	 if((errcode =fwrite(&new_base->db_cache->cache_size,sizeof(new_base->db_cache->cache_size),1,new_base->fd)) != 1)
+	 { 
+		std::cout << "cache size wasn't sucessesful written\n";
 	 }	
-
+		
 	 long int head_offset = ftell(new_base->fd);	
 	 fwrite(&head_offset,sizeof(head_offset),1,new_base->fd);/* Загатовка позиции для будущего смещения корневого листа */
-	 long long memory_size = (new_base->config->db_size/new_base->config->chunk_size)/(sizeof(char)*BITS_IN_BYTE) + 1;
+	 long long memory_size = (new_base->config->db_size)/(sizeof(char)*BITS_IN_BYTE) + 1;
 	 fwrite(&memory_size,sizeof(memory_size),1,new_base->fd);
 
 	 long int offset = write_offset(new_base->fd);
@@ -70,9 +82,9 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 	 db_all->db_write_table();
 
 	 /*
-	 offset += sizeof(char)*db_all->mem_size; // Найти смещение 
-	 new_base->head_offset = offset;   //Старая версия
-	 */
+	  * offset += sizeof(char)*db_all->mem_size; // Найти смещение 
+	  * new_base->head_offset = offset;   //Старая версия
+	  */
 
 	 new_base->head_offset = ftell(new_base->fd);
 
@@ -106,10 +118,12 @@ struct DB *dbopen(const char *file, struct DBC conf)
 
  	if(new_base->fd == NULL)
 		std::cout<<"Error! File wasn't open!\n";
-	
+
+	 new_base->head = (BTreeNode*)NULL;
 	 new_base->head = new BTreeNode;
 
 	 unsigned int key_cnt = 0, key_len = 0, val_len = 0,chld_cnt = 0,errcode = 0;
+	 long long cache_size = 0;
 
 	 if((errcode = fread(&key_cnt,sizeof(key_cnt),1,new_base->fd)) != 1)std::cout << "key count wasn't read successesfully!\n";
 	 if((errcode = fread(&key_len,sizeof(key_len),1,new_base->fd)) != 1)std::cout << "key len wasn't read successesfully!\n";
@@ -124,6 +138,13 @@ struct DB *dbopen(const char *file, struct DBC conf)
 	 {
 		std::cout << "chunk size wasn't sucessesful written\n";
 	 }
+	 if((errcode = fread(&cache_size,sizeof(cache_size),1,new_base->fd)) != 1)
+	 {
+		std::cout << "cache size wasn't sucessesful written\n";
+	 }
+	
+	 cache* db_cache = new cache(cache_size,new_base);
+	 new_base->db_cache = db_cache;
 	 	 
 	 std::cout <<"Data base configuration: \n";
 	 std::cout <<"Data base size:\t"<<new_base->config->db_size<<"\n";
@@ -147,13 +168,12 @@ struct DB *dbopen(const char *file, struct DBC conf)
 	 db_all->db_read_table();
 
 	 new_base->head_offset = head_offset;
-	 new_base->head = new BTreeNode;
 	 new_base->head->read_from_file(0,new_base);
 	 
 	 new_base->db_all = db_all;
 	 return new_base;
 } 
-//------------------------Внутренние функции DB-------------------------
+/*------------------------Внутренние функции DB-------------------------*/
 int close(struct DB *db)
 {
 
@@ -183,6 +203,12 @@ int close(struct DB *db)
 		db->config = NULL;
 		std::cout << "Tree config was successesfully deleted!\n";
 	}
+	if(db->db_cache != NULL)
+	{
+		delete db->db_cache;
+		db->db_cache = NULL;
+		std::cout << "Cache was successesfully deleted!\n";
+	}
 	delete db;
 	db = NULL;
 	return 0;
@@ -190,7 +216,6 @@ int close(struct DB *db)
 
 int get(const struct DB *db, const struct DBT *key, struct DBT *data)
 {
-	std::cout <<"Reading element from data base...\n";
 	BTreeNode* result = new BTreeNode;
 	int page = -1;
 	if((page = search_key(db->head,key->data,db, result)) < 0);
@@ -200,8 +225,6 @@ int get(const struct DB *db, const struct DBT *key, struct DBT *data)
 }
 int put(const struct DB *db, const struct DBT *key,struct DBT *data)
 {
-	
-	std::cout <<"Putting element from data base...\n";
 	int key_num = 0;
 	long long data_page = 0;
         int res = 1;
@@ -213,7 +236,7 @@ int put(const struct DB *db, const struct DBT *key,struct DBT *data)
 	key_num = insert_key(db->head,key->data,data_page,db);
 	return key_num;	
 } 
-//---------------------------------------------------------------------
+/*---------------------------------------------------------------------*/
 long int write_offset(FILE* fd)
 {
 	long int offset = ftell(fd);
@@ -228,10 +251,13 @@ long int write_offset(FILE* fd)
 	return current_offset;
 }
 
-int read_page(const struct DB* db,long long page,struct DBT* node)//Написать загрузку данных в node
+int read_page(const struct DB* db,long long page,struct DBT* node)/* Создан ли уже node нужного размера ?*/
 {
 	long long mem_read = 0;
 	long int offset = 0;
+
+	if(db->db_cache->flush(*node,page) == SUCC)	
+		return SUCC;
 
 	struct DBT* data_page = new struct DBT;
 
@@ -250,13 +276,8 @@ int read_page(const struct DB* db,long long page,struct DBT* node)//Написа
 		return FAIL;
 	}
 
-	if(node == NULL)
-	{
-		node = data_page;
-		return SUCC;
-	}
-
 	memcpy(node->data,data_page->data,node->size);
+	db->db_cache->fetch(*data_page,page);
 
 	if(data_page->data != NULL)delete[] data_page->data;
 	if(data_page != NULL)delete data_page;
@@ -301,13 +322,16 @@ int write_page(const struct DB* db,long long page,struct DBT* node)
 		return FAIL;
 	}
 	
+	db->db_cache->fetch(*data_page,page);
+
 	if(data_page->data != NULL)delete[] data_page->data;
 	if(data_page != NULL)delete data_page;
 
 	return SUCC;
 }
 
-//----------------------Функции для тестирования-------------------------
+/*----------------------Функции для тестирования-------------------------*/
+
 int db_close(struct DB *db) {
 	db->close(db);
 }

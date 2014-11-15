@@ -3,8 +3,9 @@
 
 #include <stdint.h>
 #include "mydb.h"
+#include "debug.h"
 
-#define BTREE_KEY_CNT 3
+#define BTREE_KEY_CNT 11
 #define BTREE_KEY_LEN 128
 #define BTREE_VAL_LEN 4092
 #define BTREE_CHLD_CNT (BTREE_KEY_CNT+1)
@@ -40,7 +41,6 @@ class BTreeNode {
 int search_key(BTreeNode* head,char* key,const struct DB* db,BTreeNode* result); //Возвращает номер ключа
 int delete_key(BTreeNode* head,char* key,const struct DB* db);
 int split_chld(BTreeNode* head, int k,const struct DB* db);
-int insert_key_test(BTreeNode* head,char* key,const long long data_page,const struct DB* db);
 
 int insert_key(BTreeNode* head,char* key,const long long data_page,const struct DB* db);
 int insert_nonefull(BTreeNode* head,char* key,const long long data_page,const struct DB* db);
@@ -52,6 +52,7 @@ void keys_copy(char* key_dest,char* key_source);
 void keys_copy(BTreeNode* node,int key_i,int key_j);
 void keys_copy(BTreeNode* node,int key_i,char* key);
 void keys_copy(BTreeNode* node1,int key_i,BTreeNode* node2,int key_j);
+void erase_i_key(BTreeNode* head,int i,int shift,const struct DB* db);
 
 void print_tree(BTreeNode* head,struct DB* db,int n);
 int disk_read_node(const struct DB* db,long long page,BTreeNode* result);
