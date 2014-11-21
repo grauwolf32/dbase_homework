@@ -15,7 +15,6 @@ BTreeNode::BTreeNode()
 	keys = new char[BTREE_KEY_CNT*BTREE_KEY_LEN];
 	vals = new long long[BTREE_CHLD_CNT];
 	
-
 	memset(keys,0,BTREE_KEY_CNT*BTREE_KEY_LEN*sizeof(char));
 	for(int i = 0; i < BTREE_CHLD_CNT;i++)chld[i] = -1;
 	for(int i = 0; i < BTREE_CHLD_CNT;i++)vals[i] = -1;
@@ -161,6 +160,7 @@ void BTreeNode::print_node()
 void print_tree(BTreeNode* head,struct DB* db,int n)
 {
 	if(n > MAX_TREE_LEVEL)return;
+	std::cout <<"level: "<<n<<"\n";
 	head->print_node();
 	if(head->leaf == 1)return;
 
@@ -284,7 +284,10 @@ int insert_key(BTreeNode* head,char* key,const long long data_page,const struct 
 int insert_nonefull(BTreeNode* head,char* key,const long long data_page,const struct DB* db)
 {
 	#ifdef _DEBUG_
+		int count = 0;
 		std::cout << "Inserting into none full node...\n";
+		tree_keys_count(db->head,count,db);
+		std::cout << "Keys count : "<< count<<"\n";
 	#endif
 
 	int i = head->nKeys - 1;
@@ -347,7 +350,7 @@ int split_chld(BTreeNode* head, int k,const struct DB* db)
 	{
 		for(int i = 0;i <= middle;i++)
 		{
-			y.chld[i] = x.chld[i+middle];
+			y.chld[i] = x.chld[i+middle+1];
 		}
 	}
 	for(int i = 0;i < middle;i++)
@@ -394,29 +397,75 @@ void erase_i_key(BTreeNode* head,int i,int shift,const struct DB* db)
 		keys_copy(head,j,j+1);
 		head->vals[j] = head->vals[j+1];
 	}
+	memset(head->keys+(head->nKeys-1)*BTREE_KEY_LEN,0x0,BTREE_KEY_LEN);// May be deleted !
 	head->nKeys--;
 	head->write_to_file(head->page,db);
 
 	return;
 }
 
+void remove_head(BTreeNode* head,const struct DB* db)
+{
+	long long page = 0;
+	if(head->nKeys == 0 && head->chld[0] != -1)
+	{
+		page = head->page;
+		head->read_from_file(head->chld[0],db);
+
+		std::cout <<"Deleting "<< head->page <<" page...\n";
+		db->db_all->db_free(head->page); 
+
+		head->page = page;
+		head->write_to_file(head->page,db);
+		return;
+	}
+	return;
+}
+
+void tree_keys_count(BTreeNode* head,int& count,const struct DB* db)
+{
+	int k = head->nKeys;
+	BTreeNode temp;
+
+	count += k;
+	for(int i = 0;i < k+1;i++)
+	{
+		if(head->chld[i] != -1)
+		{
+			temp.read_from_file(head->chld[i],db);
+			tree_keys_count(&temp,count,db);
+		}
+	}
+	return;
+}
+
 int delete_key(BTreeNode* head,char* key,const struct DB* db)
 {
 	#ifdef _DEBUG_
-		std::cout << "Deleting key...\n";
+		std::cout << "Deleting key on page "<<head->page<<"...\n";
 	#endif
 
+	//if(head->nKeys <= 0 && head->chld[0] == -1)return SUCC;
+	
 	BTreeNode left,right,temp;
 	int is_left = 0,is_right = 0,res = SUCC;
 	int t = BTREE_KEY_CNT/2 + 1; 
 	unsigned int i = 0;
+	int key_pos = 0;
+	int ptr = 0;
+	
+	int leftnk = 0,rightnk = 0,tmpnk = 0;
 
 	if(head->leaf)
-	{	
+	{
+		std::cout <<"Stage 0 (leaf)...\n";
 		while(i < head->nKeys && keys_compare(head,key,i) > 0)i++;
 		if(i < head->nKeys && keys_compare(head,key,i) == 0)
-		{
-			db->db_all->db_free(head->vals[i]); /* Free page in the database */
+		{	
+			if(head->vals[i] != -1)
+			{
+				db->db_all->db_free(head->vals[i]); /* Free page in the database */
+			}
 			erase_i_key(head,i,0,db);
 			return SUCC;
 		} 
@@ -428,21 +477,34 @@ int delete_key(BTreeNode* head,char* key,const struct DB* db)
 	/* If key is in this leaf */
 	if(i < head->nKeys && keys_compare(head,key,i) == 0) 
 	{
+		std::cout <<"Stage 1 (inner)...\n";
 		/* Reading adjoint nodes */
 		if(head->chld[i] != -1)
 		{
 			res &= left.read_from_file(head->chld[i],db);
 			if(res == SUCC)is_left = 1;	
 		}
+		if(res != SUCC) return FAIL;
 	
 		if(is_left && left.nKeys >= t)
-		{
-			db->db_all->db_free(head->vals[i]);
-			keys_copy(head,i,&left,left.nKeys-1); 
-			head->vals[i] = left.vals[left.nKeys-1];
+		{	
+			std::cout <<"Stage 1 (left.Keys > t)...\n";
+			if(head->vals[i] != -1)
+			{
+				db->db_all->db_free(head->vals[i]);
+			}
+			/* -------------Would be this work propуrely--------- */
+			temp.read_from_file(left.page,db);
+			while((temp.chld[temp.nKeys] != -1) && !temp.leaf)
+			{
+				temp.read_from_file(temp.chld[temp.nKeys],db);
+			}
+			/* -------------------------------------------------- */
+			keys_copy(head,i,&temp,temp.nKeys-1); 
+			head->vals[i] = temp.vals[temp.nKeys-1];
 
 			res &= head->write_to_file(head->page,db);
-			res &= delete_key(&left,left.keys+(left.nKeys-1)*BTREE_KEY_LEN,db); /* ?????????? */
+			res &= delete_key(&left,temp.keys+(temp.nKeys-1)*BTREE_KEY_LEN,db);
 			return res;
 		}
 
@@ -451,31 +513,49 @@ int delete_key(BTreeNode* head,char* key,const struct DB* db)
 		{
 			if(head->chld[i+1] != -1)
 			{
-				res &= right.read_from_file(head->chld[i],db);
+				res &= right.read_from_file(head->chld[i+1],db);
 				if(res == SUCC)is_right = 1;
 			}
 		}
+		if(res != SUCC) return FAIL;
 
 		if(is_right && right.nKeys >= t)
 		{
-			db->db_all->db_free(head->vals[i]);
-			keys_copy(head,i,&right,0); /*Shuld i copy childs and delete head->vals[i]*/
-			head->vals[i] = right.vals[0];
+			std::cout <<"Stage 1 (right.Keys > t)...\n";
+			if(head->vals[i] != -1)
+			{
+				db->db_all->db_free(head->vals[i]);
+			}
+			/* -------------Would be this work propуrely--------- */
+			temp.read_from_file(right.page,db);
+			while((temp.chld[0] != -1) && !temp.leaf)
+			{
+				temp.read_from_file(temp.chld[0],db);
+			}
+			/* -------------------------------------------------- */
+			keys_copy(head,i,&temp,0); 
+			head->vals[i] = temp.vals[0];
 
 			res &= head->write_to_file(head->page,db);
-			res &= delete_key(&right,right.keys,db); /* ??????????*/
+			res &= delete_key(&right,temp.keys,db);
 			return res;
 		}
 
 		if(is_left && is_right) /*If left and right adjoint nodes exists, and both contain t-1 keys */
 		{
-			int ptr = 0;
-			int key_pos = left.nKeys;
+			std::cout <<"Stage 1 (left & right exist)...\n";
+			ptr = 0;
+			key_pos = left.nKeys;
 
 			keys_copy(&left,left.nKeys,head->keys+i*BTREE_KEY_LEN);
 			left.vals[key_pos] = head->vals[i];
+			left.nKeys++;
+
+			leftnk = left.nKeys;
+			rightnk = right.nKeys;
+
 			/*Merging left and right pages into left */
-			for(int j = left.nKeys+1;j < left.nKeys + right.nKeys+1;j++)
+			for(int j = leftnk;j < leftnk + rightnk;j++)
 			{
 				keys_copy(&left,j,&right,ptr);
 				left.vals[j] = right.vals[ptr];
@@ -484,19 +564,21 @@ int delete_key(BTreeNode* head,char* key,const struct DB* db)
 			}
 
 			ptr = 0;
-			for(int j = key_pos+1;j < left.nKeys+1;j++)
+			for(int j = key_pos+1;j < left.nKeys;j++)
 			{
 				left.chld[j] = right.chld[ptr];
 				ptr = ptr + 1;
 			}
 			/* Cleaning head */
 			erase_i_key(head,i,1,db);
-
 			/* Updating pages in data base */
 			left.write_to_file(left.page,db);
 
 			/*Deleting page from db*/
+			std::cout <<"Deleting "<<right.page<<" page...\n";
 			db->db_all->db_free(right.page); 
+			
+			remove_head(head,db);
 
 			res &= delete_key(&left,left.keys + key_pos*BTREE_KEY_LEN,db);
 			return res;
@@ -504,42 +586,23 @@ int delete_key(BTreeNode* head,char* key,const struct DB* db)
 
 		if(is_left) /* If there is only left subtree with t-1 keys */
 		{
-			int key_pos = left.nKeys;
-			keys_copy(&left,left.nKeys,head,i);
-			
-			key_pos = left.nKeys;
-			left.nKeys++;
-			left.write_to_file(left.page,db);
-			
-			erase_i_key(head,i,1,db);  //Correct ? M.b. smthng lost here ? 
-
-			res &= delete_key(&left,left.keys + key_pos*BTREE_KEY_LEN,db);
+			erase_i_key(head,i,1,db);
+			remove_head(head,db);
 			return res;
 		}
 
-		if(is_right) /* If there is only right subtree with t-1 keys */
-		{
-			int key_pos = right.nKeys;
-			keys_copy(&right,right.nKeys,head,i);
-		
-			key_pos = right.nKeys;
-			right.nKeys++;
-			right.write_to_file(right.page,db);
-			
-			erase_i_key(head,i,0,db);
-
-			res &= delete_key(&right,right.keys + key_pos*BTREE_KEY_LEN,db);
-			return res;
-		}
-
-		erase_i_key(head,i,0,db); /* If there no adjoining subtrees */
+		erase_i_key(head,i,0,db); /* If there is only right subtree or there is no subtrees*/
+		remove_head(head,db);
 	}
 
 	else /* If key is in the subleaf */
 	{
+		std::cout <<"Stage 3(Key in the subleaf)...\n";
+		if(head->chld[i] == -1) return FAIL;
 		temp.read_from_file(head->chld[i],db);
 		if(temp.nKeys >= t)
 		{
+			std::cout <<"Stage 3(Enough Keys in subleaf)...\n";
 			res &= delete_key(&temp,head->keys + i*BTREE_KEY_LEN,db);
 			return res;
 		}
@@ -560,31 +623,143 @@ int delete_key(BTreeNode* head,char* key,const struct DB* db)
 				if(res == SUCC)is_right = 1;
 			}
 		}
+		if(res != SUCC) return FAIL;
 
 		if(is_left && left.nKeys >= t)
 		{
-			keys_copy(&temp,temp.nKeys,head,i);
-			temp.vals[temp.nKeys] = head->vals[i];
+			std::cout <<"Stage 3(left.nKeys > t)...\n";
+			for(int j = temp.nKeys-1;j > 0 ;j--)
+			{
+				keys_copy(&temp,j,j-1);
+				temp.vals[j] = temp.vals[j-1]; 
+			}
+			for(int j = temp.nKeys;j > 0;j--)
+			{
+				temp.chld[j] = temp.chld[j-1];
+			}
 
+			temp.chld[0] = -1;
 			temp.nKeys++;
 
+			keys_copy(&temp,0,head,i-1);
+			temp.vals[temp.nKeys] = head->vals[i-1];
+			
 			keys_copy(head,i,&left,left.nKeys-1);
-			return res;
+			head->vals[i] = left.vals[left.nKeys-1];
+
+			temp.chld[0] = left.chld[left.nKeys];
+			left.chld[left.nKeys] = -1;
+			
+			erase_i_key(&left,left.nKeys-1,1,db);
+			
+			res &= head->write_to_file(head->page,db);
+			res &= left.write_to_file(left.page,db); /* I may commet this for more performance */
+			res &= temp.write_to_file(temp.page,db);
+						
+			return  delete_key(&temp,key,db);
 		}
 
 		if(is_right && right.nKeys >= t)
 		{
+			std::cout <<"Stage 3(right.keys > t)...\n";
 			keys_copy(&temp,temp.nKeys,head,i);
 			temp.vals[temp.nKeys] = head->vals[i];
-
 			temp.nKeys++;
 
-			keys_copy(head,i,&left,left.nKeys-1);
-			return res;
+			keys_copy(head,i,&right,0);	
+			head->vals[i] = right.vals[0];
+			
+			temp.chld[temp.nKeys] = right.chld[0];
+			right.chld[0] = -1;
+			
+			erase_i_key(&right,0,0,db);
+
+			res &= head->write_to_file(head->page,db);
+			res &= right.write_to_file(right.page,db); /* I may commet this for more performance */
+			res &= temp.write_to_file(temp.page,db);
+
+			return  delete_key(&temp,key,db);
 		}
+
+		if(is_left)
+		{	
+			std::cout <<"Stage 3(left exist)...\n";
+			ptr = 0;
+			keys_copy(&left,left.nKeys,head,i-1);
+			left.vals[left.nKeys] = head->vals[i-1];
+			temp.nKeys++;
+			
+			leftnk = left.nKeys;
+			tmpnk = temp.nKeys;
+
+			for(int j = leftnk;j < leftnk + tmpnk -1;j++)
+			{
+				keys_copy(&left,j,&temp,ptr);
+				left.vals[j] = temp.vals[ptr];
+				left.nKeys++;
+				ptr++;
+			}
+			ptr = 0;
+			for(int j = leftnk;j < tmpnk + leftnk;j++) // ????
+			{
+				left.chld[j] = temp.chld[ptr];
+				ptr++;
+			}
+			
+			db->db_all->db_free(temp.page);
+			erase_i_key(head,i-1,1,db);
+
+			head->write_to_file(head->page,db); /* I may commet this for more performance */
+			left.write_to_file(left.page,db);	
 		
+			remove_head(head,db);
+			
+			return  delete_key(&left,key,db);;
+		}
+
+		if(is_right)
+		{
+			std::cout <<"Stage 3(right exist)...\n";
+			ptr = 0;
+			keys_copy(&temp,temp.nKeys,head,i);
+			temp.vals[temp.nKeys] = head->vals[i];			
+			temp.nKeys++;
 	
-	return res;
+			rightnk = right.nKeys;
+			tmpnk = temp.nKeys;
+			
+			for(int j = tmpnk;j < tmpnk + right.nKeys -1;j++)
+			{
+				keys_copy(&temp,j,&right,ptr);
+				temp.vals[j] = right.vals[ptr];
+				ptr++;
+			}
+			ptr = 0;
+			for(int j = temp.nKeys;j < temp.nKeys + right.nKeys;j++)
+			{
+				temp.chld[j] = right.chld[ptr];
+				ptr++;
+			}
+			
+			db->db_all->db_free(right.page);
+			erase_i_key(head,i,1,db);
+			
+			res &= head->write_to_file(head->page,db); /* I may commet this for more performance */
+			res &= temp.write_to_file(temp.page,db);
+
+			remove_head(head,db);
+
+			return  delete_key(&temp,key,db);;
+		}
+	
+	std::cout <<"Stage 3(Something else)...\n";
+	keys_copy(&temp,temp.nKeys,head,i);
+	std::cout<<"head->page "<<head->page<<" head->leaf "<<head->leaf<<"head->nKeys "<<head->nKeys <<"\n";
+	erase_i_key(head,i,1,db);
+	std::cout<<"temp->page "<<temp.page<<" temp.leaf "<<temp.leaf<<" temp.nKeys "<<temp.nKeys <<"\n";
+
+	remove_head(head,db);
+	return  delete_key(&temp,key,db);	
 
 	}
 }

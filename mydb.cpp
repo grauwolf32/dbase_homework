@@ -256,8 +256,10 @@ int read_page(const struct DB* db,long long page,struct DBT* node)/* Созда�
 	long long mem_read = 0;
 	long int offset = 0;
 
-	if(db->db_cache->flush(*node,page) == SUCC)	
+	if(db->db_cache->flush(*node,page) == SUCC)
+	{	
 		return SUCC;
+	}
 
 	struct DBT* data_page = new struct DBT;
 

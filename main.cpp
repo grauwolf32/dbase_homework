@@ -26,15 +26,34 @@ int main()
     Value.size = BTREE_VAL_LEN;
     Key.data = key;
     Key.size = BTREE_KEY_LEN;
+    int n = 3;
+    std::cout <<"Enter n: ";
+    std::cin >> n;
+    int count = 0;
     time_t time = clock();
-      for(int i = 0;i < 1000;i++)
+      for(int i = 0;i < n;i++)
+      {
     	put(db,&Key,&Value);
-
-    time = clock() - time;
-    std::cout <<"Estimated time: "<<(double)time/CLOCKS_PER_SEC<<"\n";
+      }	
+    //time = clock() - time;
+    //std::cout <<"Estimated time: "<<(double)time/CLOCKS_PER_SEC<<"\n";
+    count = 0;
+    tree_keys_count(db->head,count,db);
     std::cout <<"------------------------------------------------------------------------\n";
-    //print_tree(db->head,db,0);
-    
+    std::cout << "Keys count : "<<count;
+    print_tree(db->head,db,0);
+   
+     for(int i = 0;i < n;i++)
+      {
+    	delete_key(db->head,key,db);
+      }	
+
+    count = 0;
+    tree_keys_count(db->head,count,db);
+    std::cout <<"------------------------------------------------------------------------\n";
+    std::cout << "Keys count : "<<count;
+    print_tree(db->head,db,0);
+    //erase_i_key(db->head,0,0,db);
    
    
     delete[] key;

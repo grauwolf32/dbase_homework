@@ -5,7 +5,7 @@
 #include "mydb.h"
 #include "debug.h"
 
-#define BTREE_KEY_CNT 11
+#define BTREE_KEY_CNT 3
 #define BTREE_KEY_LEN 128
 #define BTREE_VAL_LEN 4092
 #define BTREE_CHLD_CNT (BTREE_KEY_CNT+1)
@@ -52,9 +52,13 @@ void keys_copy(char* key_dest,char* key_source);
 void keys_copy(BTreeNode* node,int key_i,int key_j);
 void keys_copy(BTreeNode* node,int key_i,char* key);
 void keys_copy(BTreeNode* node1,int key_i,BTreeNode* node2,int key_j);
+
 void erase_i_key(BTreeNode* head,int i,int shift,const struct DB* db);
+void remove_head(BTreeNode* head,const struct DB* db);
 
 void print_tree(BTreeNode* head,struct DB* db,int n);
+void tree_keys_count(BTreeNode* head,int& count,const struct DB* db);
+
 int disk_read_node(const struct DB* db,long long page,BTreeNode* result);
 int disk_write_node(const struct DB* db,long long page,BTreeNode* result);
 

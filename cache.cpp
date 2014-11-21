@@ -49,7 +49,7 @@ cache::~cache()
 int cache::fetch(const struct DBT& page,long long page_num)
 {
 	#ifdef _DEBUG_
-		std::cout << "Fetching page...\n";
+		std::cout << "Fetching page"<<page_num<<" ...\n";
 	#endif
 	map_iter it = data.find(page_num);
 	if(it->first == page_num && it != data.end())
@@ -98,7 +98,7 @@ int cache::fetch(const struct DBT& page,long long page_num)
 int cache::flush(struct DBT& page,long long page_num)
 {
 	#ifdef _DEBUG_
-		std::cout << "Flushing page...\n";
+		std::cout << "Flushing page "<<page_num<<" ...\n";
 	#endif
 	map_iter it = data.find(page_num);
 	if(it->first == page_num)
