@@ -49,20 +49,25 @@ int close(struct DB *db);
 int put(const struct DB *db, const struct DBT *key,struct DBT *data);
 int get(const struct DB *db, const struct DBT *key, struct DBT *data);
 
+int read_page(const struct DB* db,long long page,struct DBT* node);
+int write_page(const struct DB* db,long long page,struct DBT* node);
+long int write_offset(FILE* fd); /*Фсункция для написания смещений*/
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 /* don't store metadata in the file */
 struct DB *dbcreate(const char *file, struct DBC conf);
 struct DB *dbopen  (const char *file, struct DBC conf); //const struct DBC conf не нужен здесь, он используется только при конфигурировании системы 
 //Размер чанка задается только при создании базы данных 
 
-int read_page(const struct DB* db,long long page,struct DBT* node);
-int write_page(const struct DB* db,long long page,struct DBT* node);
-long int write_offset(FILE* fd); /*Фсункция для написания смещений*/
-
 int db_close(struct DB *db);
 int db_del(const struct DB *, void *, size_t);
 int db_get(const struct DB *, void *, size_t, void **, size_t *);
 int db_put(const struct DB *, void *, size_t, void * , size_t  );
+#ifdef __cplusplus
+}
+#endif
 
 /* For future uses - sync cached pages with disk
  * int db_sync(const struct DB *db);

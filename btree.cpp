@@ -368,10 +368,13 @@ int split_chld(BTreeNode* head, int k,const struct DB* db)
 	for(int i = head->nKeys-1; i >= k;i--)
 	{
 		keys_copy(head,i+1,i);
+		head->vals[i+1] = head->vals[i];
 	}
 	head->chld[k] = y.page;
 
 	keys_copy(head,k,&x,middle);
+	head->vals[k] = x.vals[middle];
+
 	head->nKeys++;
 
 	res &= head->write_to_file(head->page,db);
@@ -392,11 +395,13 @@ void erase_i_key(BTreeNode* head,int i,int shift,const struct DB* db)
 		head->chld[head->nKeys] = -1;
 	}
 
-	for(int j = i;i < head->nKeys-1;i++)
+	for(int j = i;j < head->nKeys;j++)
 	{
 		keys_copy(head,j,j+1);
 		head->vals[j] = head->vals[j+1];
 	}
+	head->vals[head->nKeys -1 ] = -1;
+
 	memset(head->keys+(head->nKeys-1)*BTREE_KEY_LEN,0x0,BTREE_KEY_LEN);// May be deleted !
 	head->nKeys--;
 	head->write_to_file(head->page,db);
@@ -465,6 +470,7 @@ int delete_key(BTreeNode* head,char* key,const struct DB* db)
 			if(head->vals[i] != -1)
 			{
 				db->db_all->db_free(head->vals[i]); /* Free page in the database */
+				head->vals[i] = -1;
 			}
 			erase_i_key(head,i,0,db);
 			return SUCC;
@@ -562,25 +568,32 @@ int delete_key(BTreeNode* head,char* key,const struct DB* db)
 				left.nKeys++;
 				ptr = ptr+1;
 			}
-
-			ptr = 0;
-			for(int j = key_pos+1;j < left.nKeys;j++)
+			
+			if(!right.leaf)
 			{
-				left.chld[j] = right.chld[ptr];
-				ptr = ptr + 1;
+				ptr = 0;
+				for(int j = leftnk;j < leftnk + rightnk+1;j++)
+				{
+					left.chld[j] = right.chld[ptr];
+					ptr = ptr + 1;
+				}
 			}
-			/* Cleaning head */
-			erase_i_key(head,i,1,db);
-			/* Updating pages in data base */
-			left.write_to_file(left.page,db);
 
 			/*Deleting page from db*/
 			std::cout <<"Deleting "<<right.page<<" page...\n";
 			db->db_all->db_free(right.page); 
 			
-			remove_head(head,db);
+			//head->chld[i+1] = -1;
+
+			/* Cleaning head */
+			erase_i_key(head,i,1,db);
+			
+			/* Updating pages in data base */
+			left.write_to_file(left.page,db);
 
 			res &= delete_key(&left,left.keys + key_pos*BTREE_KEY_LEN,db);
+			remove_head(head,db);
+
 			return res;
 		}
 
@@ -619,7 +632,7 @@ int delete_key(BTreeNode* head,char* key,const struct DB* db)
 		{
 			if(head->chld[i+1] != -1)
 			{
-				res &= right.read_from_file(head->chld[i],db);
+				res &= right.read_from_file(head->chld[i+1],db);
 				if(res == SUCC)is_right = 1;
 			}
 		}
@@ -700,7 +713,7 @@ int delete_key(BTreeNode* head,char* key,const struct DB* db)
 				ptr++;
 			}
 			ptr = 0;
-			for(int j = leftnk;j < tmpnk + leftnk;j++) // ????
+			for(int j = leftnk;j < tmpnk + leftnk;j++) 
 			{
 				left.chld[j] = temp.chld[ptr];
 				ptr++;
@@ -711,10 +724,10 @@ int delete_key(BTreeNode* head,char* key,const struct DB* db)
 
 			head->write_to_file(head->page,db); /* I may commet this for more performance */
 			left.write_to_file(left.page,db);	
-		
-			remove_head(head,db);
 			
-			return  delete_key(&left,key,db);;
+			res &= delete_key(&left,key,db);
+			remove_head(head,db);
+			return res;
 		}
 
 		if(is_right)
@@ -747,9 +760,9 @@ int delete_key(BTreeNode* head,char* key,const struct DB* db)
 			res &= head->write_to_file(head->page,db); /* I may commet this for more performance */
 			res &= temp.write_to_file(temp.page,db);
 
+			res &= delete_key(&temp,key,db);
 			remove_head(head,db);
-
-			return  delete_key(&temp,key,db);;
+			return res;
 		}
 	
 	std::cout <<"Stage 3(Something else)...\n";
