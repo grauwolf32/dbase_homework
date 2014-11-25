@@ -46,11 +46,12 @@ struct DB {
 }; /* Need for supporting multiple backends (HASH/BTREE) */
 
 int close(struct DB *db);
-int put(const struct DB *db, const struct DBT *key,struct DBT *data);
+int put(const struct DB *db, const struct DBT *key,const struct DBT *data);
 int get(const struct DB *db, const struct DBT *key, struct DBT *data);
+int del(const struct DB *db, const struct DBT *key);
 
 int read_page(const struct DB* db,long long page,struct DBT* node);
-int write_page(const struct DB* db,long long page,struct DBT* node);
+int write_page(const struct DB* db,long long page,const struct DBT* node);
 long int write_offset(FILE* fd); /*Фсункция для написания смещений*/
 
 #ifdef __cplusplus

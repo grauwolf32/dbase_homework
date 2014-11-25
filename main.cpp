@@ -45,13 +45,7 @@ int main()
    
      for(int i = 0;i < n;i++)
       {
-	//std::cout <<"------------------------------------------------------------------\n";
     	delete_key(db->head,key,db);
-	//count = 0;
-       // tree_keys_count(db->head,count,db);
-       // std::cout << "Keys count : "<<count;
-	//print_tree(db->head,db,0);
-	//std::cout <<"------------------------------------------------------------------\n";
       }	
 
     count = 0;

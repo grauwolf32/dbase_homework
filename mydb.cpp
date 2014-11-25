@@ -103,6 +103,11 @@ struct DB *dbcreate(const char *file,struct DBC conf)
 
 	 new_base->db_all = db_all;
 	 
+	 new_base->close = close;
+	 new_base->put = put;
+	 new_base->get = get;
+	 new_base->del = del;
+	 
 	 return new_base;
 }
 
@@ -171,6 +176,12 @@ struct DB *dbopen(const char *file, struct DBC conf)
 	 new_base->head->read_from_file(0,new_base);
 	 
 	 new_base->db_all = db_all;
+
+	 new_base->close = close;
+	 new_base->put = put;
+	 new_base->get = get;
+	 new_base->del = del;
+
 	 return new_base;
 } 
 /*------------------------Внутренние функции DB-------------------------*/
@@ -223,7 +234,7 @@ int get(const struct DB *db, const struct DBT *key, struct DBT *data)
 	return read_page(db,result->vals[page],data);
 	
 }
-int put(const struct DB *db, const struct DBT *key,struct DBT *data)
+int put(const struct DB *db, const struct DBT *key,const struct DBT *data)
 {
 	int key_num = 0;
 	long long data_page = 0;
@@ -236,6 +247,13 @@ int put(const struct DB *db, const struct DBT *key,struct DBT *data)
 	key_num = insert_key(db->head,key->data,data_page,db);
 	return key_num;	
 } 
+
+int del(const struct DB *db, const struct DBT *key)
+{
+	int res = SUCC;
+	res &= delete_key(db->head,key->data,db);
+	return res;
+}
 /*---------------------------------------------------------------------*/
 long int write_offset(FILE* fd)
 {
@@ -288,7 +306,7 @@ int read_page(const struct DB* db,long long page,struct DBT* node)/* Созда�
 	
 }
 
-int write_page(const struct DB* db,long long page,struct DBT* node)
+int write_page(const struct DB* db,long long page,const struct DBT* node)
 {
 	long long mem_write = 0;
 	long int offset = 0;
